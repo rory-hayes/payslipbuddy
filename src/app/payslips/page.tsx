@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type ChangeEvent, type DragEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowUpTrayIcon, DocumentTextIcon } from "@heroicons/react/24/outline";
 import { Badge } from "@/components/catalyst/badge";
 import { Button } from "@/components/catalyst/button";
 import { Subheading } from "@/components/catalyst/heading";
@@ -83,11 +84,67 @@ function createEmptyParsed(region: "UK" | "IE"): ParsedPayslip {
   };
 }
 
+const acceptedMimeTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg", "image/webp"] as const;
+const acceptedExtensions = ["pdf", "png", "jpg", "jpeg", "webp"] as const;
+const maxUploadBytes = 10 * 1024 * 1024;
+
+function formatBytes(bytes: number) {
+  const value = bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return value;
+}
+
+function extensionFromFileName(fileName: string) {
+  const lastDot = fileName.lastIndexOf(".");
+  if (lastDot < 0 || lastDot === fileName.length - 1) {
+    return "";
+  }
+  return fileName.slice(lastDot + 1).toLowerCase();
+}
+
+function inferMimeType(file: File) {
+  const normalizedType = file.type.toLowerCase();
+  if (acceptedMimeTypes.includes(normalizedType as (typeof acceptedMimeTypes)[number])) {
+    return normalizedType;
+  }
+
+  const extension = extensionFromFileName(file.name);
+  if (extension === "pdf") {
+    return "application/pdf";
+  }
+  if (extension === "jpg" || extension === "jpeg") {
+    return "image/jpeg";
+  }
+  if (extension === "png") {
+    return "image/png";
+  }
+  if (extension === "webp") {
+    return "image/webp";
+  }
+
+  return normalizedType;
+}
+
+function sanitizeFileName(fileName: string) {
+  const cleaned = fileName
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^[-_.]+|[-_.]+$/g, "");
+  return cleaned || "payslip.pdf";
+}
+
+function buildStoragePath(userId: string, fileName: string) {
+  const now = new Date();
+  const safeName = sanitizeFileName(fileName);
+  return `uploads/${userId}/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, "0")}/${Date.now()}-${safeName}`;
+}
+
 export default function PayslipsPage() {
   const { user, loading: authLoading } = useRequireAuth();
   const [region, setRegion] = useState<"UK" | "IE">("UK");
-  const [storagePath, setStoragePath] = useState("uploads/demo-payslip.pdf");
-  const [mimeType, setMimeType] = useState("application/pdf");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDropTargetActive, setIsDropTargetActive] = useState(false);
   const [activePayslipId, setActivePayslipId] = useState("");
   const [employers, setEmployers] = useState<EmployerRow[]>([]);
   const [employerId, setEmployerId] = useState("");
@@ -98,6 +155,9 @@ export default function PayslipsPage() {
   const [message, setMessage] = useState("");
   const [rows, setRows] = useState<PayslipListRow[]>([]);
   const [loadingDraftId, setLoadingDraftId] = useState("");
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [extractBusy, setExtractBusy] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const requiredErrors = useMemo(() => {
     const errors: string[] = [];
@@ -119,6 +179,93 @@ export default function PayslipsPage() {
     }
     return Array.from(new Set(errors));
   }, [draft]);
+
+  const hasEmployer = Boolean(employerId || employers[0]?.id);
+
+  function setCandidateFile(file: File | null) {
+    if (!file) {
+      setSelectedFile(null);
+      return;
+    }
+
+    const extension = extensionFromFileName(file.name);
+    if (!acceptedExtensions.includes(extension as (typeof acceptedExtensions)[number])) {
+      setMessage("Unsupported file extension. Please upload PDF, PNG, JPG, or WEBP.");
+      setSelectedFile(null);
+      return;
+    }
+
+    const normalizedMimeType = inferMimeType(file);
+    if (!acceptedMimeTypes.includes(normalizedMimeType as (typeof acceptedMimeTypes)[number])) {
+      setMessage("Unsupported file type. Please upload PDF, PNG, JPG, or WEBP.");
+      setSelectedFile(null);
+      return;
+    }
+
+    if (file.size > maxUploadBytes) {
+      setMessage("File too large. Please upload a file that is 10MB or smaller.");
+      setSelectedFile(null);
+      return;
+    }
+
+    setMessage("");
+    setSelectedFile(file);
+  }
+
+  function onFileInputChange(event: ChangeEvent<HTMLInputElement>) {
+    setCandidateFile(event.target.files?.[0] ?? null);
+  }
+
+  function onDropTargetDragOver(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setIsDropTargetActive(true);
+  }
+
+  function onDropTargetDragLeave(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setIsDropTargetActive(false);
+  }
+
+  function onDropTargetDrop(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setIsDropTargetActive(false);
+    setCandidateFile(event.dataTransfer.files?.[0] ?? null);
+  }
+
+  function fieldConfidenceValue(field: keyof ParsedPayslip) {
+    const value = draft.fieldConfidence[field as string];
+    return typeof value === "number" ? value : null;
+  }
+
+  function confidenceBadgeColor(value: number | null) {
+    if (value === null) {
+      return null;
+    }
+    if (value < 0.75) {
+      return "amber" as const;
+    }
+    if (value < 0.9) {
+      return "blue" as const;
+    }
+    return "emerald" as const;
+  }
+
+  function renderFieldTags(field: keyof ParsedPayslip) {
+    const confidenceValue = fieldConfidenceValue(field);
+    const color = confidenceBadgeColor(confidenceValue);
+    const wasEdited = Boolean(draft.editedFields[field as string]);
+
+    if (confidenceValue === null && !wasEdited) {
+      return null;
+    }
+
+    return (
+      <span className="flex items-center gap-1">
+        {confidenceValue !== null && color ? <Badge color={color}>{Math.round(confidenceValue * 100)}%</Badge> : null}
+        {wasEdited ? <Badge color="zinc">Edited</Badge> : null}
+      </span>
+    );
+  }
 
   const refreshList = useCallback(async () => {
     if (!user?.id) {
@@ -225,16 +372,36 @@ export default function PayslipsPage() {
       return;
     }
 
+    if (!selectedFile) {
+      setMessage("Select a payslip file first.");
+      return;
+    }
+
+    const normalizedMimeType = inferMimeType(selectedFile);
+    if (!acceptedMimeTypes.includes(normalizedMimeType as (typeof acceptedMimeTypes)[number])) {
+      setMessage("Unsupported file type. Please upload PDF, PNG, JPG, or WEBP.");
+      return;
+    }
+
+    if (selectedFile.size > maxUploadBytes) {
+      setMessage("File too large. Please upload a file that is 10MB or smaller.");
+      return;
+    }
+
+    setUploadBusy(true);
+
     const upload = await apiFetch<UploadedPayload>("/api/payslips/upload", {
       method: "POST",
       body: JSON.stringify({
         userId: user.id,
         employerId: selectedEmployerId,
-        fileName: storagePath.split("/").pop() ?? "payslip.pdf",
-        mimeType,
-        storagePath
+        fileName: selectedFile.name,
+        mimeType: normalizedMimeType,
+        storagePath: buildStoragePath(user.id, selectedFile.name),
+        fileSizeBytes: selectedFile.size
       })
     });
+    setUploadBusy(false);
 
     if (!upload.ok || !upload.data) {
       setMessage(upload.error?.message ?? "Upload failed.");
@@ -243,11 +410,13 @@ export default function PayslipsPage() {
 
     const payslipId = upload.data.payslip.id;
     setActivePayslipId(payslipId);
+    setExtractBusy(true);
 
     const extract = await apiFetch<ExtractPayload>(`/api/payslips/${payslipId}/extract?userId=${user.id}`, {
       method: "POST",
       body: JSON.stringify({})
     });
+    setExtractBusy(false);
 
     if (!extract.ok || !extract.data) {
       setMessage(extract.error?.message ?? "Extraction failed.");
@@ -261,7 +430,7 @@ export default function PayslipsPage() {
     const usageLine = usage?.unlimitedPayslips
       ? `Unlimited payslips on ${usage.plan}.`
       : `${usage?.freePayslipsUsed ?? 0}/${usage?.freePayslipsLimit ?? 1} free payslips.`;
-    setMessage(`Extracted with confidence ${(extract.data.confidence * 100).toFixed(0)}%. Usage: ${usageLine}`);
+    setMessage(`Extracted "${selectedFile.name}" with confidence ${(extract.data.confidence * 100).toFixed(0)}%. Usage: ${usageLine}`);
     await refreshList();
   }
 
@@ -357,18 +526,67 @@ export default function PayslipsPage() {
       <section className="grid gap-4 lg:grid-cols-2">
         <article className="rounded-2xl border border-zinc-950/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
           <Subheading>Upload and Extract</Subheading>
-          <Text className="mt-2">Supported files: PDF, PNG, JPG, WEBP.</Text>
+          <Text className="mt-2">Drop a payslip file or browse your device. We extract first, then you can manually edit any field before confirmation.</Text>
 
           <form onSubmit={uploadAndExtract} className="mt-4 space-y-4">
-            <label className="space-y-2">
-              <Text>Storage Path</Text>
-              <Input value={storagePath} onChange={(event) => setStoragePath(event.target.value)} />
+            <label
+              htmlFor="payslip-file-input"
+              className={`block cursor-pointer rounded-xl border-2 border-dashed p-5 transition ${
+                isDropTargetActive
+                  ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20"
+                  : "border-zinc-300 bg-zinc-50 hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-800/40 dark:hover:border-zinc-500"
+              }`}
+              onDragOver={onDropTargetDragOver}
+              onDragLeave={onDropTargetDragLeave}
+              onDrop={onDropTargetDrop}
+            >
+              <input
+                id="payslip-file-input"
+                ref={fileInputRef}
+                type="file"
+                className="sr-only"
+                accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp"
+                onChange={onFileInputChange}
+              />
+              <div className="flex items-start gap-3">
+                <ArrowUpTrayIcon className="mt-0.5 size-5 text-zinc-500 dark:text-zinc-300" />
+                <div className="space-y-1">
+                  <Text className="font-medium text-zinc-950 dark:text-white">Drag and drop payslip file</Text>
+                  <Text>or click to browse.</Text>
+                  <Text className="text-xs">Accepted: PDF, PNG, JPG, WEBP. Max 10MB.</Text>
+                </div>
+              </div>
             </label>
 
-            <label className="space-y-2">
-              <Text>Mime Type</Text>
-              <Input value={mimeType} onChange={(event) => setMimeType(event.target.value)} />
-            </label>
+            <div className="rounded-xl border border-zinc-950/10 p-3 dark:border-white/10">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2">
+                  <DocumentTextIcon className="mt-0.5 size-5 text-zinc-500 dark:text-zinc-300" />
+                  <div>
+                    <Text className="font-medium text-zinc-950 dark:text-white">
+                      {selectedFile ? selectedFile.name : "No file selected yet"}
+                    </Text>
+                    <Text className="text-xs">
+                      {selectedFile ? `${formatBytes(selectedFile.size)} • ${inferMimeType(selectedFile)}` : "Choose a file to begin extraction."}
+                    </Text>
+                  </div>
+                </div>
+                {selectedFile ? (
+                  <Button
+                    type="button"
+                    plain
+                    onClick={() => {
+                      setSelectedFile(null);
+                      if (fileInputRef.current) {
+                        fileInputRef.current.value = "";
+                      }
+                    }}
+                  >
+                    Clear
+                  </Button>
+                ) : null}
+              </div>
+            </div>
 
             <label className="space-y-2">
               <Text>Employer</Text>
@@ -381,7 +599,9 @@ export default function PayslipsPage() {
               </Select>
             </label>
 
-            <Button type="submit">Upload + Extract</Button>
+            <Button type="submit" disabled={!selectedFile || !hasEmployer || uploadBusy || extractBusy}>
+              {uploadBusy ? "Uploading..." : extractBusy ? "Extracting..." : "Upload + Extract"}
+            </Button>
           </form>
 
           <form onSubmit={createEmployer} className="mt-4 flex gap-2">
@@ -399,52 +619,80 @@ export default function PayslipsPage() {
 
         <article className="rounded-2xl border border-zinc-950/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
           <Subheading>Review Before Save</Subheading>
+          <Text className="mt-2">Fields with lower confidence are highlighted in amber. Confirm only after checking those values.</Text>
           <div className="mt-4 grid grid-cols-2 gap-3">
             <label className="col-span-2 space-y-2">
-              <Text>Employer Name</Text>
+              <span className="flex items-center justify-between gap-2">
+                <Text>Employer Name</Text>
+                {renderFieldTags("employerName")}
+              </span>
               <Input value={draft.employerName} onChange={(event) => updateField("employerName", event.target.value)} />
             </label>
             <label className="space-y-2">
-              <Text>Month</Text>
+              <span className="flex items-center justify-between gap-2">
+                <Text>Month</Text>
+                {renderFieldTags("periodMonth")}
+              </span>
               <Input value={draft.periodMonth} onChange={(event) => updateField("periodMonth", Number(event.target.value))} type="number" />
             </label>
             <label className="space-y-2">
-              <Text>Year</Text>
+              <span className="flex items-center justify-between gap-2">
+                <Text>Year</Text>
+                {renderFieldTags("periodYear")}
+              </span>
               <Input value={draft.periodYear} onChange={(event) => updateField("periodYear", Number(event.target.value))} type="number" />
             </label>
             <label className="space-y-2">
-              <Text>Gross</Text>
+              <span className="flex items-center justify-between gap-2">
+                <Text>Gross</Text>
+                {renderFieldTags("gross")}
+              </span>
               <Input value={draft.gross} onChange={(event) => updateField("gross", Number(event.target.value))} type="number" />
             </label>
             <label className="space-y-2">
-              <Text>Net</Text>
+              <span className="flex items-center justify-between gap-2">
+                <Text>Net</Text>
+                {renderFieldTags("net")}
+              </span>
               <Input value={draft.net} onChange={(event) => updateField("net", Number(event.target.value))} type="number" />
             </label>
             <label className="space-y-2">
-              <Text>Tax</Text>
+              <span className="flex items-center justify-between gap-2">
+                <Text>Tax</Text>
+                {renderFieldTags("tax")}
+              </span>
               <Input value={draft.tax} onChange={(event) => updateField("tax", Number(event.target.value))} type="number" />
             </label>
             <label className="space-y-2">
-              <Text>Pension</Text>
+              <span className="flex items-center justify-between gap-2">
+                <Text>Pension</Text>
+                {renderFieldTags("pension")}
+              </span>
               <Input value={draft.pension} onChange={(event) => updateField("pension", Number(event.target.value))} type="number" />
             </label>
             <label className="space-y-2">
-              <Text>NI / PRSI</Text>
+              <span className="flex items-center justify-between gap-2">
+                <Text>NI / PRSI</Text>
+                {renderFieldTags("niOrPrsi")}
+              </span>
               <Input value={draft.niOrPrsi} onChange={(event) => updateField("niOrPrsi", Number(event.target.value))} type="number" />
             </label>
             <label className="space-y-2">
-              <Text>USC</Text>
+              <span className="flex items-center justify-between gap-2">
+                <Text>USC</Text>
+                {renderFieldTags("usc")}
+              </span>
               <Input value={draft.usc ?? 0} onChange={(event) => updateField("usc", Number(event.target.value))} type="number" />
             </label>
           </div>
 
           <label className="mt-4 block space-y-2">
-            <Text>Confidence (0-1)</Text>
-            <Input value={confidence} onChange={(event) => setConfidence(Number(event.target.value))} type="number" step="0.01" min={0} max={1} />
+            <Text>Model confidence</Text>
+            <Input value={`${Math.round(confidence * 100)}%`} readOnly type="text" />
           </label>
 
           <label className="mt-4 block space-y-2">
-            <Text>Notes</Text>
+            <Text>Reviewer Notes</Text>
             <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} className="h-24" />
           </label>
 
@@ -473,7 +721,7 @@ export default function PayslipsPage() {
           ) : null}
 
           <div className="mt-5">
-            <Button onClick={confirmDraft} disabled={!activePayslipId || requiredErrors.length > 0} type="button">
+            <Button onClick={confirmDraft} disabled={!activePayslipId || requiredErrors.length > 0 || uploadBusy || extractBusy} type="button">
               Confirm Payslip
             </Button>
           </div>

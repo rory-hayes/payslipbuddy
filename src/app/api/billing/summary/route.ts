@@ -25,6 +25,7 @@ export async function GET(request: Request) {
       billingCycle: user.billingCycle,
       region: user.region,
       reminderEnabled: user.reminderEnabled,
+      onboardingCompleted: user.onboardingCompleted,
       canManageBilling: inMemoryDb.isOwnerOfAnyHousehold(user.id)
     },
     usage: usageMeter(user.id)

@@ -11,3 +11,4 @@ coverage
 output
 tsconfig.tsbuildinfo
 .vercel
+supabase/.temp

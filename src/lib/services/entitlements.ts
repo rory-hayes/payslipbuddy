@@ -3,11 +3,14 @@ import type { PlanTier, UserProfile } from "@/lib/types/domain";
 
 export const FREE_LIMITS = {
   payslips: 1,
-  bankCsv: 0
+  bankCsv: 0,
+  budgetExpenses: 10,
+  budgetGoals: 2
 } as const;
 
 export interface PlanCapabilities {
   unlimitedPayslips: boolean;
+  unlimitedBudgetItems: boolean;
   annualDashboard: boolean;
   pdfExport: boolean;
   xlsxExport: boolean;
@@ -19,6 +22,7 @@ export interface PlanCapabilities {
 const capabilities: Record<PlanTier, PlanCapabilities> = {
   FREE: {
     unlimitedPayslips: false,
+    unlimitedBudgetItems: false,
     annualDashboard: false,
     pdfExport: false,
     xlsxExport: false,
@@ -28,6 +32,7 @@ const capabilities: Record<PlanTier, PlanCapabilities> = {
   },
   PLUS: {
     unlimitedPayslips: true,
+    unlimitedBudgetItems: true,
     annualDashboard: true,
     pdfExport: true,
     xlsxExport: false,
@@ -37,6 +42,7 @@ const capabilities: Record<PlanTier, PlanCapabilities> = {
   },
   PRO: {
     unlimitedPayslips: true,
+    unlimitedBudgetItems: true,
     annualDashboard: true,
     pdfExport: true,
     xlsxExport: true,
@@ -125,6 +131,45 @@ export function canImportBankCsv(userId: string): { allowed: boolean; reason?: s
   }
 
   return { allowed: false, reason: "Bank CSV import is deferred to V1.5." };
+}
+
+export function canCreateBudgetExpense(userId: string, existingCount: number): { allowed: boolean; reason?: string } {
+  const context = resolveEntitlementContext(userId);
+  if (!context) {
+    return { allowed: false, reason: "User entitlement unavailable." };
+  }
+
+  const planCapabilities = getCapabilities(context.user);
+  if (planCapabilities.unlimitedBudgetItems && context.subscriptionStatus === "ACTIVE") {
+    return { allowed: true };
+  }
+
+  if (existingCount >= FREE_LIMITS.budgetExpenses) {
+    return {
+      allowed: false,
+      reason: `Free plan limit reached (${FREE_LIMITS.budgetExpenses} expenses). Upgrade to continue.`
+    };
+  }
+
+  return { allowed: true };
+}
+
+export function canCreateBudgetGoal(userId: string, existingCount: number): { allowed: boolean; reason?: string } {
+  const context = resolveEntitlementContext(userId);
+  if (!context) {
+    return { allowed: false, reason: "User entitlement unavailable." };
+  }
+
+  const planCapabilities = getCapabilities(context.user);
+  if (planCapabilities.unlimitedBudgetItems && context.subscriptionStatus === "ACTIVE") {
+    return { allowed: true };
+  }
+
+  if (existingCount >= FREE_LIMITS.budgetGoals) {
+    return { allowed: false, reason: `Free plan limit reached (${FREE_LIMITS.budgetGoals} goals). Upgrade to continue.` };
+  }
+
+  return { allowed: true };
 }
 
 export function canUseHouseholdSharing(userId: string): { allowed: boolean; reason?: string } {
@@ -224,6 +269,7 @@ export function usageMeter(userId: string) {
 
   const planCapabilities = getCapabilities(user);
   const hasUnlimitedPayslips = planCapabilities.unlimitedPayslips && usage.subscriptionStatus === "ACTIVE";
+  const hasUnlimitedBudgetItems = planCapabilities.unlimitedBudgetItems && usage.subscriptionStatus === "ACTIVE";
 
   return {
     plan: user.plan,
@@ -234,6 +280,9 @@ export function usageMeter(userId: string) {
     freeCsvUsed: usage.freeCsvUsed,
     freeCsvLimit: FREE_LIMITS.bankCsv,
     unlimitedPayslips: hasUnlimitedPayslips,
+    unlimitedBudgetItems: hasUnlimitedBudgetItems,
+    freeBudgetExpensesLimit: FREE_LIMITS.budgetExpenses,
+    freeBudgetGoalsLimit: FREE_LIMITS.budgetGoals,
     annualDashboard: planCapabilities.annualDashboard && usage.subscriptionStatus === "ACTIVE",
     pdfExport: planCapabilities.pdfExport && usage.subscriptionStatus === "ACTIVE",
     xlsxExport: planCapabilities.xlsxExport && usage.subscriptionStatus === "ACTIVE",

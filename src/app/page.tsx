@@ -44,7 +44,7 @@ export default function HomePage() {
 
         <div className="relative min-h-80 overflow-hidden rounded-2xl border border-zinc-200">
           <Image
-            src="/branding/landing-hero.webp"
+            src="/branding/landing-hero-theme.webp"
             alt="Professional reviewing payroll data on a laptop"
             fill
             priority
@@ -79,7 +79,7 @@ export default function HomePage() {
         <article className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
           <div className="relative h-full min-h-80">
             <Image
-              src="/branding/dashboard-analytics.webp"
+              src="/branding/dashboard-analytics-theme.webp"
               alt="Payroll analytics dashboard preview"
               fill
               className="object-cover"

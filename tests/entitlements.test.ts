@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { canUploadPayslip, canUseHouseholdSharing, canExportAnnual } from "@/lib/services/entitlements";
+import {
+  canCreateBudgetExpense,
+  canCreateBudgetGoal,
+  canUploadPayslip,
+  canUseHouseholdSharing,
+  canExportAnnual
+} from "@/lib/services/entitlements";
 import { inMemoryDb } from "@/lib/db/in-memory-db";
 
 beforeEach(() => {
@@ -43,5 +49,20 @@ describe("entitlements", () => {
     user.plan = "PLUS";
     expect(canExportAnnual("user_demo", "pdf").allowed).toBe(true);
     expect(canExportAnnual("user_demo", "xlsx").allowed).toBe(false);
+  });
+
+  it("enforces free budget limits", () => {
+    expect(canCreateBudgetExpense("user_demo", 9).allowed).toBe(true);
+    expect(canCreateBudgetExpense("user_demo", 10).allowed).toBe(false);
+    expect(canCreateBudgetGoal("user_demo", 1).allowed).toBe(true);
+    expect(canCreateBudgetGoal("user_demo", 2).allowed).toBe(false);
+  });
+
+  it("unlocks unlimited budget items on active paid plans", () => {
+    inMemoryDb.setSubscriptionStatus("user_demo", "ACTIVE");
+    inMemoryDb.setUserPlanAndCycle("user_demo", "PLUS", "MONTHLY");
+
+    expect(canCreateBudgetExpense("user_demo", 200).allowed).toBe(true);
+    expect(canCreateBudgetGoal("user_demo", 50).allowed).toBe(true);
   });
 });

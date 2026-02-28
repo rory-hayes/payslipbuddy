@@ -1,16 +1,10 @@
 "use client";
 
+import { ChartBarIcon, CreditCardIcon, HomeIcon, SparklesIcon } from "@heroicons/react/20/solid";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Legend,
-  Tooltip,
-  XAxis,
-  YAxis
-} from "recharts";
+import { Bar, BarChart, CartesianGrid, Legend, Tooltip, XAxis, YAxis } from "recharts";
 import { Badge } from "@/components/catalyst/badge";
+import { Button } from "@/components/catalyst/button";
 import { Subheading } from "@/components/catalyst/heading";
 import { Text } from "@/components/catalyst/text";
 import { PageShell } from "@/components/page-shell";
@@ -23,6 +17,9 @@ interface DashboardOverview {
     region: "UK" | "IE";
     currency: "GBP" | "EUR";
     plan: string;
+    onboardingCompleted: boolean;
+    budgetSetupCompleted: boolean;
+    monthlyIncomeTarget: number | null;
   };
   usage: {
     plan: string;
@@ -70,6 +67,25 @@ interface DashboardOverview {
     goalsTargetTotal: number;
     goalsProgressTotal: number;
   };
+  budgetCategories: Array<{
+    category: string;
+    accent: "blue" | "amber" | "orange" | "fuchsia" | "zinc";
+    spent: number;
+    budget: number;
+    spentPercent: number;
+  }>;
+  spendingStatus: {
+    label: "GOOD" | "WATCH" | "HIGH";
+    percent: number;
+  };
+  goals: Array<{
+    id: string;
+    name: string;
+    targetAmount: number;
+    progressAmount: number;
+    targetDate: string | null;
+    progressPercent: number;
+  }>;
   employerTimeline: string[];
 }
 
@@ -80,6 +96,24 @@ function asCurrency(value: number, code: "GBP" | "EUR") {
     maximumFractionDigits: 2
   }).format(value);
 }
+
+function periodLabel(period: DashboardOverview["latestPayslip"]) {
+  if (!period) {
+    return "Awaiting your first confirmed payslip";
+  }
+  return `Latest period: ${String(period.periodMonth).padStart(2, "0")}/${period.periodYear}`;
+}
+
+const categoryStyles: Record<
+  DashboardOverview["budgetCategories"][number]["accent"],
+  { text: string; progress: string; chip: "blue" | "amber" | "orange" | "fuchsia" | "zinc" }
+> = {
+  blue: { text: "text-blue-700", progress: "bg-blue-500", chip: "blue" },
+  amber: { text: "text-amber-700", progress: "bg-amber-500", chip: "amber" },
+  orange: { text: "text-orange-700", progress: "bg-orange-500", chip: "orange" },
+  fuchsia: { text: "text-fuchsia-700", progress: "bg-fuchsia-500", chip: "fuchsia" },
+  zinc: { text: "text-zinc-700", progress: "bg-zinc-500", chip: "zinc" }
+};
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useRequireAuth();
@@ -106,11 +140,6 @@ export default function DashboardPage() {
   }, [user?.id]);
 
   const currency = data?.user.currency ?? "GBP";
-
-  const criticalChanges = useMemo(() => {
-    return (data?.momDiff ?? []).filter((diff) => Math.abs(diff.delta) >= 50);
-  }, [data?.momDiff]);
-
   const hasMonthlyData = (data?.monthlySeries ?? []).length > 0;
 
   useEffect(() => {
@@ -136,62 +165,203 @@ export default function DashboardPage() {
     return () => observer.disconnect();
   }, [hasMonthlyData]);
 
+  const criticalChanges = useMemo(() => {
+    return (data?.momDiff ?? []).filter((diff) => Math.abs(diff.delta) >= 50).slice(0, 4);
+  }, [data?.momDiff]);
+
   if (authLoading) {
     return <Text>Loading your workspace...</Text>;
   }
 
+  const income = data?.budgetSnapshot.monthlyIncome ?? 0;
+  const expenses = data?.budgetSnapshot.trackedExpenses ?? 0;
+  const balance = data?.budgetSnapshot.availableAfterTracked ?? 0;
+  const spendingPercent = data?.spendingStatus.percent ?? 0;
+  const needsBudgetSetup = Boolean(data && !data.user.budgetSetupCompleted);
+  const budgetSetupHref = data?.user.onboardingCompleted ? "/budget" : "/onboarding?step=budget";
+
   return (
     <PageShell
-      title="Dashboard"
-      subtitle="Track budget health, payroll trends, and month-over-month deduction changes from one workspace."
+      title="Personal Budget Tracker"
+      subtitle="Track monthly payroll, spending, and savings targets from one unified payslip-first dashboard."
+      actions={<Badge color="blue">{periodLabel(data?.latestPayslip ?? null)}</Badge>}
     >
       {error ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
-          {error}
-        </div>
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{error}</div>
       ) : null}
 
-      {loading ? <Text>Refreshing your latest payroll analytics...</Text> : null}
+      {loading ? <Text>Refreshing your latest budget analytics...</Text> : null}
 
-      <section className="grid gap-4 md:grid-cols-4">
-        <article className="rounded-2xl border border-zinc-950/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900">
-          <Text>Current Net (Confirmed)</Text>
-          <p className="mt-2 text-3xl/9 font-semibold text-zinc-950 dark:text-white">
-            {asCurrency(data?.latestBreakdown?.net ?? 0, currency)}
-          </p>
+      {needsBudgetSetup ? (
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm/6 font-semibold text-amber-900">Complete budget setup</p>
+              <p className="text-sm/6 text-amber-800">
+                Add recurring expenses and at least one goal so your monthly budget board and savings progress stay accurate.
+              </p>
+            </div>
+            <Button href={budgetSetupHref}>Complete budget setup</Button>
+          </div>
+        </section>
+      ) : null}
+
+      <section className="rounded-3xl border border-blue-200 bg-gradient-to-r from-blue-700 via-blue-600 to-blue-500 p-6 text-white shadow-lg shadow-blue-500/30">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="space-y-2">
+            <p className="text-xs/5 uppercase tracking-[0.2em] text-blue-100">Budget Health</p>
+            <h2 className="text-2xl/8 font-semibold">Build confidence in your monthly money decisions.</h2>
+            <p className="text-sm/6 text-blue-100">
+              Plan: {data?.user.plan ?? "FREE"} · Region: {data?.user.region ?? "UK"} · Currency: {currency}
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <article className="rounded-2xl border border-white/30 bg-white/15 p-4 backdrop-blur">
+              <p className="text-xs/5 uppercase tracking-wide text-blue-100">Suggested Savings</p>
+              <p className="mt-1 text-xl/7 font-semibold">
+                {asCurrency(data?.budgetSnapshot.suggestedSavings ?? 0, currency)}
+              </p>
+            </article>
+            <article className="rounded-2xl border border-white/30 bg-white/15 p-4 backdrop-blur">
+              <p className="text-xs/5 uppercase tracking-wide text-blue-100">Spending Ratio</p>
+              <p className="mt-1 text-xl/7 font-semibold">{spendingPercent.toFixed(1)}%</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section className="flex flex-wrap gap-2">
+        <Button href="/dashboard">Dashboard</Button>
+        <Button href="/payslips" outline>
+          Transactions
+        </Button>
+        <Button href="/budget" outline>
+          Budgets
+        </Button>
+        <Button href="/reports" outline>
+          Savings
+        </Button>
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <article className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <Text>Total Income</Text>
+            <ChartBarIcon className="size-5 text-emerald-600" />
+          </div>
+          <p className="mt-2 text-3xl/9 font-semibold text-emerald-600">{asCurrency(income, currency)}</p>
+          <Text className="mt-2">Net monthly income from confirmed payslips.</Text>
         </article>
-        <article className="rounded-2xl border border-zinc-950/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900">
-          <Text>Current Tax</Text>
-          <p className="mt-2 text-3xl/9 font-semibold text-zinc-950 dark:text-white">
-            {asCurrency(data?.latestBreakdown?.tax ?? 0, currency)}
-          </p>
+
+        <article className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <Text>Total Expenses</Text>
+            <CreditCardIcon className="size-5 text-rose-600" />
+          </div>
+          <p className="mt-2 text-3xl/9 font-semibold text-rose-600">{asCurrency(expenses, currency)}</p>
+          <Text className="mt-2">Tracked recurring, upcoming, and one-off expenses.</Text>
         </article>
-        <article className="rounded-2xl border border-zinc-950/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900">
-          <Text>Planned Savings</Text>
-          <p className="mt-2 text-3xl/9 font-semibold text-zinc-950 dark:text-white">
-            {asCurrency(data?.budgetSnapshot.suggestedSavings ?? 0, currency)}
-          </p>
+
+        <article className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <Text>Current Balance</Text>
+            <HomeIcon className="size-5 text-blue-600" />
+          </div>
+          <p className="mt-2 text-3xl/9 font-semibold text-blue-600">{asCurrency(balance, currency)}</p>
+          <Text className="mt-2">Income remaining after currently tracked outgoings.</Text>
         </article>
-        <article className="rounded-2xl border border-zinc-950/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900">
-          <Text>Usage Meter</Text>
-          <p className="mt-2 text-2xl/8 font-semibold text-zinc-950 dark:text-white">
-            {data?.usage
-              ? data.usage.unlimitedPayslips
-                ? `Unlimited (${data.usage.plan})`
-                : `${data.usage.freePayslipsUsed}/${data.usage.freePayslipsLimit} free payslips used`
-              : "n/a"}
+
+        <article className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <Text>Spending Status</Text>
+            <SparklesIcon className="size-5 text-emerald-600" />
+          </div>
+          <p
+            className={`mt-2 text-3xl/9 font-semibold ${
+              data?.spendingStatus.label === "GOOD"
+                ? "text-emerald-600"
+                : data?.spendingStatus.label === "WATCH"
+                  ? "text-amber-600"
+                  : "text-rose-600"
+            }`}
+          >
+            {data?.spendingStatus.label ?? "GOOD"}
           </p>
+          <Text className="mt-2">{spendingPercent.toFixed(1)}% of monthly income currently allocated.</Text>
         </article>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
-        <article className="rounded-2xl border border-zinc-950/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <Subheading>Monthly Payslip Breakdown</Subheading>
-            <Badge color="blue">Stacked trend</Badge>
+      <section className="grid gap-4 xl:grid-cols-2">
+        <article className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <Subheading>Budget Overview</Subheading>
+            <Badge color="blue">Planned vs Spent</Badge>
+          </div>
+
+          <div className="space-y-5">
+            {(data?.budgetCategories ?? []).map((item) => {
+              const style = categoryStyles[item.accent] ?? categoryStyles.zinc;
+              return (
+                <div key={item.category} className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className={`text-sm/6 font-semibold ${style.text}`}>{item.category}</p>
+                    <p className="text-sm/6 text-zinc-600">
+                      {asCurrency(item.spent, currency)} / {asCurrency(item.budget, currency)}
+                    </p>
+                  </div>
+                  <div className="h-2 rounded-full bg-zinc-100">
+                    <div
+                      className={`h-full rounded-full ${style.progress}`}
+                      style={{ width: `${Math.min(100, Math.max(0, item.spentPercent))}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </article>
+
+        <article className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <Subheading>Savings Goals</Subheading>
+            <Badge color="fuchsia">Targets</Badge>
+          </div>
+
+          {(data?.goals ?? []).length === 0 ? (
+            <Text>No goals set yet. Add your first goal from the budget board.</Text>
+          ) : (
+            <div className="space-y-5">
+              {(data?.goals ?? []).map((goal) => (
+                <div key={goal.id} className="rounded-xl border border-zinc-200 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm/6 font-semibold text-zinc-950">{goal.name}</p>
+                    <p className="text-sm/6 font-semibold text-fuchsia-600">{goal.progressPercent.toFixed(1)}% complete</p>
+                  </div>
+                  <p className="mt-1 text-sm/6 text-zinc-600">
+                    {asCurrency(goal.progressAmount, currency)} saved of {asCurrency(goal.targetAmount, currency)}
+                  </p>
+                  <div className="mt-3 h-2 rounded-full bg-fuchsia-100">
+                    <div
+                      className="h-full rounded-full bg-fuchsia-500"
+                      style={{ width: `${Math.min(100, Math.max(0, goal.progressPercent))}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </article>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[1.35fr_0.65fr]">
+        <article className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <Subheading>Payslip Trend</Subheading>
+            <Badge color="blue">Stacked by month</Badge>
           </div>
           {!hasMonthlyData ? (
-            <Text>Confirm at least one payslip to render your stacked payroll graph.</Text>
+            <Text>Confirm at least one payslip to render monthly stacked trend charts.</Text>
           ) : (
             <div ref={chartContainerRef} className="h-80 min-h-80 w-full">
               {chartWidth > 0 ? (
@@ -207,109 +377,66 @@ export default function DashboardPage() {
                     contentStyle={{ borderRadius: 12, borderColor: "#e4e4e7" }}
                   />
                   <Legend />
-                  <Bar dataKey="gross" stackId="payroll" fill="#0ea5e9" name="Gross" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="gross" stackId="payroll" fill="#2563eb" name="Gross" radius={[6, 6, 0, 0]} />
                   <Bar dataKey="tax" stackId="payroll" fill="#f97316" name="Tax" />
-                  <Bar dataKey="pension" stackId="payroll" fill="#22c55e" name="Pension" />
+                  <Bar dataKey="pension" stackId="payroll" fill="#14b8a6" name="Pension" />
                 </BarChart>
               ) : null}
             </div>
           )}
         </article>
 
-        <article className="rounded-2xl border border-zinc-950/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
-          <Subheading>Budget Snapshot</Subheading>
-          <ul className="mt-4 space-y-3 text-sm/6">
-            <li className="flex items-center justify-between text-zinc-700 dark:text-zinc-300">
-              <span>Monthly income (avg)</span>
-              <span className="font-semibold text-zinc-950 dark:text-white">
-                {asCurrency(data?.budgetSnapshot.monthlyIncome ?? 0, currency)}
-              </span>
-            </li>
-            <li className="flex items-center justify-between text-zinc-700 dark:text-zinc-300">
-              <span>Suggested essentials</span>
-              <span className="font-semibold text-zinc-950 dark:text-white">
-                {asCurrency(data?.budgetSnapshot.suggestedNeeds ?? 0, currency)}
-              </span>
-            </li>
-            <li className="flex items-center justify-between text-zinc-700 dark:text-zinc-300">
-              <span>Suggested lifestyle</span>
-              <span className="font-semibold text-zinc-950 dark:text-white">
-                {asCurrency(data?.budgetSnapshot.suggestedWants ?? 0, currency)}
-              </span>
-            </li>
-            <li className="flex items-center justify-between text-zinc-700 dark:text-zinc-300">
-              <span>Tracked expenses</span>
-              <span className="font-semibold text-zinc-950 dark:text-white">
-                {asCurrency(data?.budgetSnapshot.trackedExpenses ?? 0, currency)}
-              </span>
-            </li>
-            <li className="flex items-center justify-between text-zinc-700 dark:text-zinc-300">
-              <span>Available after tracked</span>
-              <span className="font-semibold text-zinc-950 dark:text-white">
-                {asCurrency(data?.budgetSnapshot.availableAfterTracked ?? 0, currency)}
-              </span>
-            </li>
-            <li className="flex items-center justify-between text-zinc-700 dark:text-zinc-300">
-              <span>Goals progress</span>
-              <span className="font-semibold text-zinc-950 dark:text-white">
-                {asCurrency(data?.budgetSnapshot.goalsProgressTotal ?? 0, currency)} /{" "}
-                {asCurrency(data?.budgetSnapshot.goalsTargetTotal ?? 0, currency)}
-              </span>
-            </li>
-          </ul>
-        </article>
-      </section>
-
-      <section className="grid gap-4 md:grid-cols-2">
-        <article className="rounded-2xl border border-zinc-950/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
-          <Subheading>MoM Change Highlights</Subheading>
-          {(data?.momDiff ?? []).length === 0 ? (
-            <Text className="mt-3">Upload two confirmed payslips to generate change insights.</Text>
-          ) : criticalChanges.length === 0 ? (
-            <Text className="mt-3">No major MoM changes detected in the latest confirmed period.</Text>
+        <article className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <Subheading>What Changed</Subheading>
+          {criticalChanges.length === 0 ? (
+            <Text className="mt-3">No major month-over-month payroll changes detected yet.</Text>
           ) : (
             <ul className="mt-4 space-y-3">
               {criticalChanges.map((item) => (
-                <li key={item.metric} className="rounded-xl border border-zinc-950/10 p-3 dark:border-white/10">
-                  <p className="text-sm/6 font-medium text-zinc-950 capitalize dark:text-white">{item.metric}</p>
+                <li key={item.metric} className="rounded-xl border border-zinc-200 p-3">
+                  <p className="text-sm/6 font-semibold capitalize text-zinc-950">{item.metric}</p>
                   <Text className="mt-1">{item.insight}</Text>
                 </li>
               ))}
             </ul>
           )}
-        </article>
 
-        <article className="rounded-2xl border border-zinc-950/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
-          <Subheading>Line Item Changes</Subheading>
-          {(data?.lineItemChanges ?? []).length === 0 ? (
-            <Text className="mt-3">No line-item deltas yet.</Text>
-          ) : (
-            <ul className="mt-4 space-y-3">
-              {data?.lineItemChanges.slice(0, 6).map((item) => (
-                <li key={`${item.type}-${item.label}`} className="rounded-xl border border-zinc-950/10 p-3 dark:border-white/10">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm/6 font-medium text-zinc-950 dark:text-white">{item.label}</p>
-                    <p className="text-sm/6 font-semibold text-zinc-950 dark:text-white">{item.delta.toFixed(2)}</p>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {item.isNew ? <Badge color="blue">New item</Badge> : null}
-                    {item.isIrregular ? <Badge color="amber">Irregular</Badge> : null}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+          {(data?.lineItemChanges ?? []).length > 0 ? (
+            <div className="mt-5">
+              <Text className="font-medium">Irregular line items</Text>
+              <ul className="mt-2 space-y-2">
+                {(data?.lineItemChanges ?? [])
+                  .filter((item) => item.isNew || item.isIrregular)
+                  .slice(0, 3)
+                  .map((item) => (
+                    <li key={`${item.type}-${item.label}`} className="flex items-center justify-between text-sm/6 text-zinc-700">
+                      <span>{item.label}</span>
+                      <span className="font-semibold">{item.delta.toFixed(2)}</span>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          ) : null}
         </article>
       </section>
 
-      <section className="rounded-2xl border border-zinc-950/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
-        <Subheading>Employer Timeline</Subheading>
+      <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <Subheading>Employer Timeline</Subheading>
+          {data?.usage ? (
+            <Badge color={data.usage.unlimitedPayslips ? "emerald" : "blue"}>
+              {data.usage.unlimitedPayslips
+                ? `${data.usage.plan} unlimited`
+                : `${data.usage.freePayslipsUsed}/${data.usage.freePayslipsLimit} used`}
+            </Badge>
+          ) : null}
+        </div>
         {(data?.employerTimeline ?? []).length === 0 ? (
-          <Text className="mt-3">No confirmed payslips yet.</Text>
+          <Text>No confirmed payslips yet.</Text>
         ) : (
-          <ul className="mt-4 space-y-2">
+          <ul className="space-y-2">
             {data?.employerTimeline.map((entry) => (
-              <li key={entry} className="text-sm/6 text-zinc-700 dark:text-zinc-300">
+              <li key={entry} className="text-sm/6 text-zinc-700">
                 {entry}
               </li>
             ))}

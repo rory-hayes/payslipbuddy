@@ -13,6 +13,20 @@ import { Text } from "@/components/catalyst/text";
 
 type AuthMode = "signin" | "signup";
 
+function toFriendlyAuthError(message: string) {
+  const value = message.toLowerCase();
+  if (value.includes("rate limit")) {
+    return "Too many authentication emails were requested recently. Please wait a few minutes and try again.";
+  }
+  if (value.includes("invalid login credentials")) {
+    return "Email or password is incorrect. Please try again.";
+  }
+  if (value.includes("email address") && value.includes("invalid")) {
+    return "Please enter a valid email address.";
+  }
+  return message;
+}
+
 function AuthPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -28,7 +42,7 @@ function AuthPageContent() {
   const nextPath = useMemo(() => {
     const next = searchParams.get("next");
     if (!next || !next.startsWith("/")) {
-      return "/onboarding";
+      return "/dashboard";
     }
     return next;
   }, [searchParams]);
@@ -42,7 +56,7 @@ function AuthPageContent() {
       const result = await signInWithPassword(email, password);
       setBusy(false);
       if (result.error) {
-        setStatus(result.error);
+        setStatus(toFriendlyAuthError(result.error));
         return;
       }
       router.replace(nextPath);
@@ -52,7 +66,7 @@ function AuthPageContent() {
     const signup = await signUpWithPassword(email, password);
     if (signup.error) {
       setBusy(false);
-      setStatus(signup.error);
+      setStatus(toFriendlyAuthError(signup.error));
       return;
     }
 
@@ -66,7 +80,7 @@ function AuthPageContent() {
     const signin = await signInWithPassword(email, password);
     setBusy(false);
     if (signin.error) {
-      setStatus("Account created. Please sign in.");
+      setStatus(toFriendlyAuthError("Account created. Please sign in."));
       setMode("signin");
       return;
     }
@@ -86,7 +100,7 @@ function AuthPageContent() {
     setBusy(false);
 
     if (result.error) {
-      setStatus(result.error);
+      setStatus(toFriendlyAuthError(result.error));
       return;
     }
 
@@ -115,7 +129,7 @@ function AuthPageContent() {
         </ul>
         <div className="relative mt-8 overflow-hidden rounded-2xl border border-zinc-200">
           <Image
-            src="/branding/onboarding-journey-pro.webp"
+            src="/branding/onboarding-journey-theme.webp"
             alt="Onboarding journey illustration"
             width={768}
             height={768}
@@ -135,8 +149,8 @@ function AuthPageContent() {
             : "Create your account to begin onboarding."}
         </Text>
 
-        <form className="mt-6 space-y-4" onSubmit={submit}>
-          <label className="space-y-2">
+        <form className="mt-7 space-y-5" onSubmit={submit}>
+          <label className="block space-y-2">
             <Text>Email</Text>
             <Input
               type="email"
@@ -147,7 +161,7 @@ function AuthPageContent() {
               placeholder="you@example.com"
             />
           </label>
-          <label className="space-y-2">
+          <label className="block space-y-2">
             <Text>Password</Text>
             <Input
               type="password"
@@ -159,13 +173,15 @@ function AuthPageContent() {
               placeholder="At least 8 characters"
             />
           </label>
-          <Button type="submit" disabled={busy}>
-            {busy ? "Please wait..." : mode === "signin" ? "Sign in" : "Create account"}
-          </Button>
+          <div className="pt-1">
+            <Button type="submit" disabled={busy} className="w-full justify-center sm:w-auto">
+              {busy ? "Please wait..." : mode === "signin" ? "Sign in" : "Create account"}
+            </Button>
+          </div>
         </form>
 
         {mode === "signin" ? (
-          <div className="mt-4 space-y-2">
+          <div className="mt-6 space-y-2">
             <Text>Passwordless option</Text>
             <Button plain disabled={busy} onClick={() => void sendLink()} type="button">
               Send magic link
@@ -174,12 +190,16 @@ function AuthPageContent() {
         ) : null}
 
         {!hasSupabase ? (
-          <Text className="mt-4 text-amber-700">Supabase env vars are missing. Configure auth keys to enable signup/login.</Text>
+          <Text className="mt-5 text-amber-700">Supabase env vars are missing. Configure auth keys to enable signup/login.</Text>
         ) : null}
 
-        {status ? <Text className="mt-4">{status}</Text> : null}
+        {status ? (
+          <div className="mt-5 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+            <Text>{status}</Text>
+          </div>
+        ) : null}
 
-        <Divider className="my-6" />
+        <Divider className="my-7" />
 
         <div className="flex flex-wrap items-center gap-2">
           <Text>{mode === "signin" ? "No account yet?" : "Already have an account?"}</Text>

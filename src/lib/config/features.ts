@@ -4,7 +4,7 @@ export const features = {
   annualReportsV1: true,
   billingV1: true,
   remindersV1: true,
-  budgetBoardV15: false,
+  budgetBoardV15: true,
   bankCsvV15: false,
   taxBackNumericV15: false,
   bulkUploadV15: false

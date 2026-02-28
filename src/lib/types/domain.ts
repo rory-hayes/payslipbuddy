@@ -20,6 +20,11 @@ export interface UserProfile {
   plan: PlanTier;
   billingCycle: BillingCycle | null;
   reminderEnabled: boolean;
+  onboardingCompleted: boolean;
+  onboardingCompletedAt: string | null;
+  budgetSetupCompleted: boolean;
+  budgetSetupCompletedAt: string | null;
+  monthlyIncomeTarget: number | null;
   createdAt: string;
 }
 

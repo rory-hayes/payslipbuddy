@@ -3,11 +3,11 @@
 import {
   ArrowPathIcon,
   ChartBarIcon,
+  Cog6ToothIcon,
   CreditCardIcon,
   DocumentDuplicateIcon,
   HomeIcon,
   InboxStackIcon,
-  SparklesIcon,
   UserGroupIcon,
   UserPlusIcon
 } from "@heroicons/react/20/solid";
@@ -40,14 +40,14 @@ interface NavItem {
 const primaryNavigation: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: HomeIcon },
   { href: "/payslips", label: "Payslips", icon: InboxStackIcon },
+  { href: "/budget", label: "Budget", icon: DocumentDuplicateIcon },
   { href: "/reports", label: "Annual Reports", icon: ChartBarIcon },
   { href: "/household", label: "Household", icon: UserGroupIcon },
-  { href: "/billing", label: "Billing", icon: CreditCardIcon }
+  { href: "/billing", label: "Billing", icon: CreditCardIcon },
+  { href: "/settings", label: "Settings", icon: Cog6ToothIcon }
 ];
 
 const secondaryNavigation: NavItem[] = [
-  { href: "/onboarding", label: "Onboarding", icon: SparklesIcon },
-  { href: "/budget", label: "Budget (V1.5)", icon: DocumentDuplicateIcon },
   { href: "/taxback", label: "TaxBack (V1.5)", icon: ArrowPathIcon }
 ];
 
@@ -143,7 +143,7 @@ export function ApplicationLayout({ children }: { children: ReactNode }) {
 
           <SidebarFooter className="max-lg:hidden">
             <SidebarSection>
-              <SidebarItem href="/onboarding" current={isCurrentRoute(pathname, "/onboarding")}>
+              <SidebarItem href="/settings" current={isCurrentRoute(pathname, "/settings")}>
                 <span className="flex min-w-0 items-center gap-3">
                   <Avatar square initials={userInitials} className="size-8 bg-zinc-200 text-zinc-700" />
                   <span className="min-w-0">
@@ -151,7 +151,7 @@ export function ApplicationLayout({ children }: { children: ReactNode }) {
                       {user?.email ?? "Workspace"}
                     </span>
                     <span className="block truncate text-xs/5 font-normal text-zinc-500 dark:text-zinc-400">
-                      Configure profile
+                      Profile settings
                     </span>
                   </span>
                 </span>

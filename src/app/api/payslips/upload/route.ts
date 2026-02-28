@@ -5,6 +5,27 @@ import { resolveRequestUser } from "@/lib/supabase/request-user";
 import { uploadPayslipBodySchema } from "@/lib/validation/schemas";
 
 const supportedMimeTypes = new Set(["application/pdf", "image/png", "image/jpeg", "image/jpg", "image/webp"]);
+const supportedExtensions = new Set(["pdf", "png", "jpg", "jpeg", "webp"]);
+const maxFileBytes = 10 * 1024 * 1024;
+
+function extractExtension(fileName: string) {
+  const lastDot = fileName.lastIndexOf(".");
+  if (lastDot < 0 || lastDot === fileName.length - 1) {
+    return "";
+  }
+  return fileName.slice(lastDot + 1).toLowerCase();
+}
+
+function sanitizeFileName(fileName: string) {
+  const cleaned = fileName
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^[-_.]+|[-_.]+$/g, "");
+
+  return cleaned || "payslip";
+}
 
 export async function POST(request: Request) {
   try {
@@ -44,15 +65,26 @@ export async function POST(request: Request) {
       return badRequest("Unsupported file type. Upload PDF, PNG, JPG, or WEBP payslips.");
     }
 
+    const extension = extractExtension(body.data.fileName);
+    if (!supportedExtensions.has(extension)) {
+      return badRequest("Invalid file extension. Upload PDF, PNG, JPG, or WEBP payslips.");
+    }
+
+    if (body.data.fileSizeBytes && body.data.fileSizeBytes > maxFileBytes) {
+      return badRequest("File size exceeds the 10MB limit.");
+    }
+
+    const now = new Date();
+    const safeFileName = sanitizeFileName(body.data.fileName);
+    const generatedPath = `uploads/${user.id}/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, "0")}/${Date.now()}-${safeFileName}`;
     const file = inMemoryDb.addFile({
       userId: user.id,
       bucket: "payslips",
-      path: body.data.storagePath,
-      mimeType: body.data.mimeType,
+      path: generatedPath,
+      mimeType: body.data.mimeType.toLowerCase(),
       encrypted: true
     });
 
-    const now = new Date();
     const payslip = inMemoryDb.addPayslip({
       userId: user.id,
       employerId: body.data.employerId,
@@ -69,7 +101,12 @@ export async function POST(request: Request) {
       action: "PAYSLIP_UPLOADED",
       entity: "payslip",
       entityId: payslip.id,
-      metadata: { fileId: file.id, schemaVersion: payslip.schemaVersion }
+      metadata: {
+        fileId: file.id,
+        schemaVersion: payslip.schemaVersion,
+        fileName: safeFileName,
+        fileSizeBytes: body.data.fileSizeBytes ?? null
+      }
     });
 
     return created({

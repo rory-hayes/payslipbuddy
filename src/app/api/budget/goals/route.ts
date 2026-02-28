@@ -1,7 +1,7 @@
 import { created, forbidden, ok, parseBody, serverError } from "@/lib/http";
-import { canCreateBudgetExpense } from "@/lib/services/entitlements";
+import { canCreateBudgetGoal } from "@/lib/services/entitlements";
 import { resolveRequestUser } from "@/lib/supabase/request-user";
-import { createExpenseBodySchema } from "@/lib/validation/schemas";
+import { createGoalBodySchema } from "@/lib/validation/schemas";
 import { inMemoryDb } from "@/lib/db/in-memory-db";
 import { resolveBudgetHousehold, syncBudgetSetupCompletion } from "@/lib/services/budget";
 
@@ -20,13 +20,12 @@ export async function GET(request: Request) {
       id: resolved.data.userId,
       email: resolved.data.email
     });
-
     const householdResult = resolveBudgetHousehold(user.id, url.searchParams.get("householdId"));
     if (householdResult.error || !householdResult.householdId) {
       return forbidden(householdResult.error ?? "Household access denied.");
     }
 
-    const rows = inMemoryDb.listExpensesByHousehold(householdResult.householdId);
+    const rows = inMemoryDb.listGoalsByHousehold(householdResult.householdId);
 
     return ok({
       householdId: householdResult.householdId,
@@ -40,13 +39,13 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error(error);
-    return serverError("Failed to load budget expenses.");
+    return serverError("Failed to load goals.");
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const body = await parseBody(request, createExpenseBodySchema);
+    const body = await parseBody(request, createGoalBodySchema);
     if ("error" in body) {
       return body.error;
     }
@@ -63,36 +62,32 @@ export async function POST(request: Request) {
       id: resolved.data.userId,
       email: resolved.data.email
     });
-
     const householdResult = resolveBudgetHousehold(user.id, body.data.householdId);
     if (householdResult.error || !householdResult.householdId) {
       return forbidden(householdResult.error ?? "Household access denied.");
     }
 
-    const existingCount = inMemoryDb.listExpensesByHousehold(householdResult.householdId).length;
-    const gate = canCreateBudgetExpense(user.id, existingCount);
+    const existingCount = inMemoryDb.listGoalsByHousehold(householdResult.householdId).length;
+    const gate = canCreateBudgetGoal(user.id, existingCount);
     if (!gate.allowed) {
-      return forbidden(gate.reason ?? "Budget expense limit reached.");
+      return forbidden(gate.reason ?? "Budget goal limit reached.");
     }
 
-    const expense = inMemoryDb.addExpense({
+    const goal = inMemoryDb.addGoal({
       householdId: householdResult.householdId,
-      category: body.data.category.trim(),
-      kind: body.data.kind,
-      amount: body.data.amount,
-      dueDate: body.data.dueDate ?? null,
-      recurrence: body.data.recurrence ?? null,
-      notes: body.data.notes ?? null,
-      createdBy: user.id
+      name: body.data.name.trim(),
+      targetAmount: body.data.targetAmount,
+      targetDate: body.data.targetDate ?? null,
+      progressAmount: body.data.progressAmount ?? 0
     });
 
     syncBudgetSetupCompletion(user.id, householdResult.householdId);
 
     return created({
-      expense
+      goal
     });
   } catch (error) {
     console.error(error);
-    return serverError("Failed to create budget expense.");
+    return serverError("Failed to create goal.");
   }
 }

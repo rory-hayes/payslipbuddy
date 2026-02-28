@@ -72,6 +72,11 @@ const initialUser: UserProfile = {
   plan: "FREE",
   billingCycle: null,
   reminderEnabled: true,
+  onboardingCompleted: false,
+  onboardingCompletedAt: null,
+  budgetSetupCompleted: false,
+  budgetSetupCompletedAt: null,
+  monthlyIncomeTarget: null,
   createdAt: new Date().toISOString()
 };
 
@@ -109,17 +114,7 @@ const initialState: InMemoryState = {
   bankImports: [],
   bankTransactions: [],
   expenses: [],
-  goals: [
-    {
-      id: "goal_demo",
-      householdId: initialHousehold.id,
-      name: "Emergency Fund",
-      targetAmount: 5000,
-      targetDate: null,
-      progressAmount: 1200,
-      createdAt: new Date().toISOString()
-    }
-  ],
+  goals: [],
   taxBackItems: [
     {
       id: "tax_uk_1",
@@ -215,7 +210,26 @@ export const inMemoryDb = {
     if (existing) {
       if (input.email && existing.email !== input.email) {
         existing.email = input.email;
-        persistState();
+      }
+
+      if (typeof existing.onboardingCompleted !== "boolean") {
+        existing.onboardingCompleted = false;
+      }
+
+      if (typeof existing.onboardingCompletedAt === "undefined") {
+        existing.onboardingCompletedAt = null;
+      }
+
+      if (typeof existing.budgetSetupCompleted !== "boolean") {
+        existing.budgetSetupCompleted = false;
+      }
+
+      if (typeof existing.budgetSetupCompletedAt === "undefined") {
+        existing.budgetSetupCompletedAt = null;
+      }
+
+      if (typeof existing.monthlyIncomeTarget === "undefined") {
+        existing.monthlyIncomeTarget = null;
       }
 
       if (this.listHouseholdsByUser(existing.id).length === 0) {
@@ -231,15 +245,6 @@ export const inMemoryDb = {
           userId: existing.id,
           role: "OWNER",
           status: "ACTIVE",
-          createdAt: nowIso()
-        });
-        getState().goals.push({
-          id: id("goal"),
-          householdId: household.id,
-          name: "Emergency Buffer",
-          targetAmount: 3000,
-          targetDate: null,
-          progressAmount: 0,
           createdAt: nowIso()
         });
       }
@@ -274,6 +279,11 @@ export const inMemoryDb = {
       plan: "FREE",
       billingCycle: null,
       reminderEnabled: true,
+      onboardingCompleted: false,
+      onboardingCompletedAt: null,
+      budgetSetupCompleted: false,
+      budgetSetupCompletedAt: null,
+      monthlyIncomeTarget: null,
       createdAt: nowIso()
     };
 
@@ -298,15 +308,6 @@ export const inMemoryDb = {
       userId: user.id,
       role: "OWNER",
       status: "ACTIVE",
-      createdAt: nowIso()
-    });
-    getState().goals.push({
-      id: id("goal"),
-      householdId: household.id,
-      name: "Emergency Buffer",
-      targetAmount: 3000,
-      targetDate: null,
-      progressAmount: 0,
       createdAt: nowIso()
     });
     getState().employers.push(employer);
@@ -363,6 +364,41 @@ export const inMemoryDb = {
     }
 
     user.reminderEnabled = enabled;
+    persistState();
+    return user;
+  },
+
+  setOnboardingCompleted(userId: string, completed: boolean) {
+    const user = this.getUser(userId);
+    if (!user) {
+      return null;
+    }
+
+    user.onboardingCompleted = completed;
+    user.onboardingCompletedAt = completed ? nowIso() : null;
+    persistState();
+    return user;
+  },
+
+  setBudgetSetupCompleted(userId: string, completed: boolean) {
+    const user = this.getUser(userId);
+    if (!user) {
+      return null;
+    }
+
+    user.budgetSetupCompleted = completed;
+    user.budgetSetupCompletedAt = completed ? nowIso() : null;
+    persistState();
+    return user;
+  },
+
+  setMonthlyIncomeTarget(userId: string, target: number | null) {
+    const user = this.getUser(userId);
+    if (!user) {
+      return null;
+    }
+
+    user.monthlyIncomeTarget = target;
     persistState();
     return user;
   },
@@ -633,12 +669,109 @@ export const inMemoryDb = {
     return expense;
   },
 
+  getExpense(expenseId: string) {
+    return getState().expenses.find((expense) => expense.id === expenseId) ?? null;
+  },
+
   listExpensesByHousehold(householdId: string) {
     return getState().expenses.filter((expense) => expense.householdId === householdId);
   },
 
+  updateExpense(
+    expenseId: string,
+    input: Partial<Pick<Expense, "category" | "kind" | "amount" | "dueDate" | "recurrence" | "notes">>
+  ) {
+    const expense = this.getExpense(expenseId);
+    if (!expense) {
+      return null;
+    }
+
+    if (typeof input.category === "string") {
+      expense.category = input.category;
+    }
+    if (typeof input.kind === "string") {
+      expense.kind = input.kind;
+    }
+    if (typeof input.amount === "number") {
+      expense.amount = input.amount;
+    }
+    if (typeof input.dueDate !== "undefined") {
+      expense.dueDate = input.dueDate;
+    }
+    if (typeof input.recurrence !== "undefined") {
+      expense.recurrence = input.recurrence;
+    }
+    if (typeof input.notes !== "undefined") {
+      expense.notes = input.notes;
+    }
+
+    persistState();
+    return expense;
+  },
+
+  deleteExpense(expenseId: string) {
+    const state = getState();
+    const index = state.expenses.findIndex((expense) => expense.id === expenseId);
+    if (index < 0) {
+      return false;
+    }
+    state.expenses.splice(index, 1);
+    persistState();
+    return true;
+  },
+
+  addGoal(input: Omit<Goal, "id" | "createdAt">) {
+    const goal: Goal = {
+      ...input,
+      id: id("goal"),
+      createdAt: nowIso()
+    };
+
+    getState().goals.push(goal);
+    persistState();
+    return goal;
+  },
+
+  getGoal(goalId: string) {
+    return getState().goals.find((goal) => goal.id === goalId) ?? null;
+  },
+
   listGoalsByHousehold(householdId: string) {
     return getState().goals.filter((goal) => goal.householdId === householdId);
+  },
+
+  updateGoal(goalId: string, input: Partial<Pick<Goal, "name" | "targetAmount" | "targetDate" | "progressAmount">>) {
+    const goal = this.getGoal(goalId);
+    if (!goal) {
+      return null;
+    }
+
+    if (typeof input.name === "string") {
+      goal.name = input.name;
+    }
+    if (typeof input.targetAmount === "number") {
+      goal.targetAmount = input.targetAmount;
+    }
+    if (typeof input.targetDate !== "undefined") {
+      goal.targetDate = input.targetDate;
+    }
+    if (typeof input.progressAmount === "number") {
+      goal.progressAmount = input.progressAmount;
+    }
+
+    persistState();
+    return goal;
+  },
+
+  deleteGoal(goalId: string) {
+    const state = getState();
+    const index = state.goals.findIndex((goal) => goal.id === goalId);
+    if (index < 0) {
+      return false;
+    }
+    state.goals.splice(index, 1);
+    persistState();
+    return true;
   },
 
   getHousehold(householdId: string) {

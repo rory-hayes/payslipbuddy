@@ -39,9 +39,10 @@ export const confirmPayslipBodySchema = z.object({
 export const uploadPayslipBodySchema = z.object({
   userId: z.string().min(1),
   employerId: z.string().min(1),
-  fileName: z.string().min(1),
+  fileName: z.string().trim().min(1).max(180),
   mimeType: z.string().min(1),
-  storagePath: z.string().min(1)
+  storagePath: z.string().min(1).optional(),
+  fileSizeBytes: z.number().int().positive().max(10 * 1024 * 1024).optional()
 });
 
 export const csvImportBodySchema = z.object({
@@ -57,13 +58,40 @@ export const csvImportBodySchema = z.object({
 
 export const createExpenseBodySchema = z.object({
   userId: z.string().min(1),
-  householdId: z.string().min(1),
+  householdId: z.string().min(1).optional(),
   category: z.string().min(1),
   kind: z.enum(["RECURRING", "UPCOMING", "ONE_OFF"]),
   amount: nonNegative,
   dueDate: z.string().optional().nullable(),
   recurrence: z.string().optional().nullable(),
   notes: z.string().optional().nullable()
+});
+
+export const updateExpenseBodySchema = z.object({
+  userId: z.string().min(1),
+  category: z.string().min(1).optional(),
+  kind: z.enum(["RECURRING", "UPCOMING", "ONE_OFF"]).optional(),
+  amount: nonNegative.optional(),
+  dueDate: z.string().optional().nullable(),
+  recurrence: z.string().optional().nullable(),
+  notes: z.string().optional().nullable()
+});
+
+export const createGoalBodySchema = z.object({
+  userId: z.string().min(1),
+  householdId: z.string().min(1).optional(),
+  name: z.string().min(1),
+  targetAmount: nonNegative,
+  targetDate: z.string().optional().nullable(),
+  progressAmount: nonNegative.optional()
+});
+
+export const updateGoalBodySchema = z.object({
+  userId: z.string().min(1),
+  name: z.string().min(1).optional(),
+  targetAmount: nonNegative.optional(),
+  targetDate: z.string().optional().nullable(),
+  progressAmount: nonNegative.optional()
 });
 
 export const inviteHouseholdBodySchema = z.object({
