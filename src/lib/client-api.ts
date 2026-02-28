@@ -11,6 +11,7 @@ export interface ApiResponse<T> {
 
 export async function apiFetch<T>(input: RequestInfo | URL, init?: RequestInit): Promise<ApiResponse<T>> {
   const headers = new Headers(init?.headers ?? {});
+  const method = (init?.method ?? "GET").toUpperCase();
 
   if (!headers.has("content-type")) {
     headers.set("content-type", "application/json");
@@ -25,7 +26,8 @@ export async function apiFetch<T>(input: RequestInfo | URL, init?: RequestInit):
 
   const response = await fetch(input, {
     ...init,
-    headers
+    headers,
+    cache: method === "GET" || method === "HEAD" ? "no-store" : init?.cache
   });
 
   const payload = (await response.json().catch(() => ({}))) as ApiResponse<T>;

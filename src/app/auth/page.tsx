@@ -4,7 +4,6 @@ import { FormEvent, Suspense, useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
-import { Badge } from "@/components/catalyst/badge";
 import { Button } from "@/components/catalyst/button";
 import { Divider } from "@/components/catalyst/divider";
 import { Heading } from "@/components/catalyst/heading";
@@ -110,9 +109,7 @@ function AuthPageContent() {
   return (
     <div className="mx-auto grid min-h-[85svh] w-full max-w-6xl items-center gap-8 lg:grid-cols-[1.15fr_0.85fr]">
       <section className="hidden rounded-3xl border border-zinc-200 bg-white p-10 shadow-sm lg:block">
-        <Badge color="blue">PaySlip Buddy Account</Badge>
-        <Heading className="mt-6 max-w-xl">Create your secure payslip workspace and start your onboarding journey.</Heading>
-        <div className="relative mt-6 overflow-hidden rounded-2xl border border-zinc-200">
+        <div className="relative overflow-hidden rounded-2xl border border-zinc-200">
           <Image
             src="/branding/onboarding-journey-theme.webp"
             alt="Onboarding journey illustration"
@@ -123,82 +120,82 @@ function AuthPageContent() {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
-        <div className="flex items-center justify-between">
+      <div className="space-y-4">
+        <Heading className="max-w-xl">Create your secure payslip workspace and start your onboarding journey.</Heading>
+        <section className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
           <Heading level={2}>{mode === "signin" ? "Sign in" : "Create account"}</Heading>
-          <Badge color="zinc">{mode === "signin" ? "Returning user" : "New user"}</Badge>
-        </div>
-        <Text className="mt-2">
-          {mode === "signin"
-            ? "Sign in to continue to your payroll workspace."
-            : "Create your account to begin onboarding."}
-        </Text>
+          <Text className="mt-2">
+            {mode === "signin"
+              ? "Sign in to continue to your payroll workspace."
+              : "Create your account to begin onboarding."}
+          </Text>
 
-        <form className="mt-7 space-y-5" onSubmit={submit}>
-          <label className="block space-y-2">
-            <Text>Email</Text>
-            <Input
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@example.com"
-            />
-          </label>
-          <label className="block space-y-2">
-            <Text>Password</Text>
-            <Input
-              type="password"
-              autoComplete={mode === "signin" ? "current-password" : "new-password"}
-              required
-              minLength={8}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="At least 8 characters"
-            />
-          </label>
-          <div className="pt-1">
-            <Button type="submit" disabled={busy} className="w-full justify-center sm:w-auto">
-              {busy ? "Please wait..." : mode === "signin" ? "Sign in" : "Create account"}
+          <form className="mt-7 space-y-5" onSubmit={submit}>
+            <label className="block space-y-2">
+              <Text>Email</Text>
+              <Input
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="you@example.com"
+              />
+            </label>
+            <label className="block space-y-2">
+              <Text>Password</Text>
+              <Input
+                type="password"
+                autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                required
+                minLength={8}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="At least 8 characters"
+              />
+            </label>
+            <div className="pt-1">
+              <Button type="submit" disabled={busy} className="w-full justify-center sm:w-auto">
+                {busy ? "Please wait..." : mode === "signin" ? "Sign in" : "Create account"}
+              </Button>
+            </div>
+          </form>
+
+          {mode === "signin" ? (
+            <div className="mt-6 space-y-2">
+              <Text>Passwordless option</Text>
+              <Button plain disabled={busy} onClick={() => void sendLink()} type="button">
+                Send magic link
+              </Button>
+            </div>
+          ) : null}
+
+          {!hasSupabase ? (
+            <Text className="mt-5 text-amber-700">Supabase env vars are missing. Configure auth keys to enable signup/login.</Text>
+          ) : null}
+
+          {status ? (
+            <div className="mt-5 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+              <Text>{status}</Text>
+            </div>
+          ) : null}
+
+          <Divider className="my-7" />
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Text>{mode === "signin" ? "No account yet?" : "Already have an account?"}</Text>
+            <Button
+              plain
+              onClick={() => {
+                setStatus("");
+                setMode((current) => (current === "signin" ? "signup" : "signin"));
+              }}
+            >
+              {mode === "signin" ? "Create one" : "Sign in"}
             </Button>
           </div>
-        </form>
-
-        {mode === "signin" ? (
-          <div className="mt-6 space-y-2">
-            <Text>Passwordless option</Text>
-            <Button plain disabled={busy} onClick={() => void sendLink()} type="button">
-              Send magic link
-            </Button>
-          </div>
-        ) : null}
-
-        {!hasSupabase ? (
-          <Text className="mt-5 text-amber-700">Supabase env vars are missing. Configure auth keys to enable signup/login.</Text>
-        ) : null}
-
-        {status ? (
-          <div className="mt-5 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
-            <Text>{status}</Text>
-          </div>
-        ) : null}
-
-        <Divider className="my-7" />
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Text>{mode === "signin" ? "No account yet?" : "Already have an account?"}</Text>
-          <Button
-            plain
-            onClick={() => {
-              setStatus("");
-              setMode((current) => (current === "signin" ? "signup" : "signin"));
-            }}
-          >
-            {mode === "signin" ? "Create one" : "Sign in"}
-          </Button>
+        </section>
         </div>
-      </section>
     </div>
   );
 }

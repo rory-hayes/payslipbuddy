@@ -501,7 +501,7 @@ function OnboardingPageContent() {
                     ) : null}
 
                     <Field>
-                      <Label>Monthly Income Target ({region === "UK" ? "GBP" : "EUR"})</Label>
+                      <Label>Expected Monthly Take-home Pay ({region === "UK" ? "GBP" : "EUR"})</Label>
                       <Input
                         type="number"
                         min="0"
@@ -510,6 +510,9 @@ function OnboardingPageContent() {
                         onChange={(event) => setMonthlyIncomeTarget(event.target.value)}
                         placeholder="Optional"
                       />
+                      <Text className="mt-1 text-xs text-zinc-500">
+                        Used as your budget baseline. This is not a savings goal or future salary target.
+                      </Text>
                     </Field>
 
                     <div className="space-y-3 rounded-xl border border-zinc-200 p-4">
@@ -753,7 +756,7 @@ function OnboardingPageContent() {
                       ) : (
                         <>
                           <p className="text-sm/6 text-zinc-700">
-                            Monthly income target: {monthlyIncomeTarget.trim() ? monthlyIncomeTarget : "Not set"}
+                            Monthly take-home baseline: {monthlyIncomeTarget.trim() ? monthlyIncomeTarget : "Not set"}
                           </p>
                           <p className="text-sm/6 text-zinc-700">Recurring expenses: {recurringPreview.length}</p>
                           <p className="text-sm/6 text-zinc-700">Upcoming expenses: {upcomingPreview.length}</p>

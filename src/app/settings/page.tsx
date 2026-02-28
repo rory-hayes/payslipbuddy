@@ -96,7 +96,7 @@ export default function SettingsPage() {
     const monthlyTarget = hasMonthlyTarget ? Number(monthlyIncomeTarget) : null;
     if (hasMonthlyTarget && (!Number.isFinite(monthlyTarget) || (monthlyTarget ?? 0) < 0)) {
       setBusy(false);
-      setStatus("Monthly income target must be a non-negative number.");
+      setStatus("Monthly take-home baseline must be a non-negative number.");
       return;
     }
 
@@ -165,7 +165,7 @@ export default function SettingsPage() {
               </Field>
 
               <Field>
-                <Label>Monthly Income Target ({region === "UK" ? "GBP" : "EUR"})</Label>
+                <Label>Expected Monthly Take-home Pay ({region === "UK" ? "GBP" : "EUR"})</Label>
                 <Input
                   type="number"
                   min="0"
@@ -174,6 +174,9 @@ export default function SettingsPage() {
                   onChange={(event) => setMonthlyIncomeTarget(event.target.value)}
                   placeholder="Optional"
                 />
+                <Text className="mt-1 text-xs text-zinc-500">
+                  Used as your budget baseline. This is not a savings target.
+                </Text>
               </Field>
 
               <Field>

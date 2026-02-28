@@ -5,6 +5,8 @@ import { createGoalBodySchema } from "@/lib/validation/schemas";
 import { inMemoryDb } from "@/lib/db/in-memory-db";
 import { resolveBudgetHousehold, syncBudgetSetupCompletion } from "@/lib/services/budget";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);

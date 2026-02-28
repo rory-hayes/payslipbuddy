@@ -65,7 +65,13 @@ function currentLabel(pathname: string) {
 }
 
 function usesPublicLayout(pathname: string) {
-  return pathname === "/" || pathname.startsWith("/auth") || pathname.startsWith("/onboarding");
+  return (
+    pathname === "/" ||
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/onboarding") ||
+    pathname.startsWith("/security") ||
+    pathname.startsWith("/privacy")
+  );
 }
 
 export function ApplicationLayout({ children }: { children: ReactNode }) {

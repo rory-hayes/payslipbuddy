@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/catalyst/badge";
 import { Button } from "@/components/catalyst/button";
 import { Field, FieldGroup, Fieldset, Label, Legend } from "@/components/catalyst/fieldset";
@@ -29,6 +29,14 @@ interface GoalRecord {
   targetAmount: number;
   targetDate?: string | null;
   progressAmount: number;
+}
+
+interface OnboardingProfileResponse {
+  user: {
+    region: "UK" | "IE";
+    currency: "GBP" | "EUR";
+    monthlyIncomeTarget: number | null;
+  };
 }
 
 interface EditableExpense {
@@ -99,9 +107,11 @@ export default function BudgetPage() {
   const [monthlyIncomeTarget, setMonthlyIncomeTarget] = useState("");
   const [expenses, setExpenses] = useState<EditableExpense[]>([]);
   const [goals, setGoals] = useState<EditableGoal[]>([]);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(true);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const requestVersionRef = useRef(0);
 
   const [newRecurringCategory, setNewRecurringCategory] = useState("");
   const [newRecurringAmount, setNewRecurringAmount] = useState("");
@@ -118,10 +128,11 @@ export default function BudgetPage() {
       return;
     }
 
+    const requestVersion = ++requestVersionRef.current;
     setBusy(true);
     setError("");
 
-    const [expenseResult, goalResult] = await Promise.all([
+    const [expenseResult, goalResult, profileResult] = await Promise.all([
       apiFetch<{
         rows: ExpenseRecord[];
         user: {
@@ -139,29 +150,55 @@ export default function BudgetPage() {
           monthlyIncomeTarget: number | null;
           budgetSetupCompleted: boolean;
         };
-      }>(`/api/budget/goals?userId=${user.id}`)
+      }>(`/api/budget/goals?userId=${user.id}`),
+      apiFetch<OnboardingProfileResponse>(`/api/onboarding/profile?userId=${user.id}`)
     ]);
 
-    setBusy(false);
-    if (!expenseResult.ok || !expenseResult.data) {
-      setError(expenseResult.error?.message ?? "Could not load budget expenses.");
-      return;
-    }
-    if (!goalResult.ok || !goalResult.data) {
-      setError(goalResult.error?.message ?? "Could not load goals.");
+    if (requestVersion !== requestVersionRef.current) {
       return;
     }
 
-    setRegion(expenseResult.data.user.region);
-    setCurrency(expenseResult.data.user.currency);
-    setMonthlyIncomeTarget(
-      expenseResult.data.user.monthlyIncomeTarget != null
-        ? expenseResult.data.user.monthlyIncomeTarget.toString()
-        : ""
-    );
-    setExpenses(expenseResult.data.rows.map(mapExpense));
-    setGoals(goalResult.data.rows.map(mapGoal));
-  }, [user?.id]);
+    setBusy(false);
+    setHasLoaded(true);
+    const errors: string[] = [];
+
+    if (expenseResult.ok && expenseResult.data) {
+      setExpenses(expenseResult.data.rows.map(mapExpense));
+      setRegion(expenseResult.data.user.region);
+      setCurrency(expenseResult.data.user.currency);
+      setMonthlyIncomeTarget(
+        expenseResult.data.user.monthlyIncomeTarget != null
+          ? expenseResult.data.user.monthlyIncomeTarget.toString()
+          : ""
+      );
+    } else {
+      errors.push(expenseResult.error?.message ?? "Could not load budget expenses.");
+    }
+
+    if (goalResult.ok && goalResult.data) {
+      setGoals(goalResult.data.rows.map(mapGoal));
+    } else {
+      errors.push(goalResult.error?.message ?? "Could not load goals.");
+    }
+
+    if (profileResult.ok && profileResult.data) {
+      setRegion(profileResult.data.user.region);
+      setCurrency(profileResult.data.user.currency);
+      setMonthlyIncomeTarget(
+        profileResult.data.user.monthlyIncomeTarget != null
+          ? profileResult.data.user.monthlyIncomeTarget.toString()
+          : ""
+      );
+    } else if (!expenseResult.ok) {
+      errors.push(profileResult.error?.message ?? "Could not load profile defaults.");
+    }
+
+    if (errors.length > 0) {
+      setError(errors[0] ?? "Could not load budget board.");
+    } else {
+      setError("");
+    }
+  }, [requestVersionRef, user?.id]);
 
   useEffect(() => {
     void loadBudget();
@@ -186,7 +223,7 @@ export default function BudgetPage() {
 
     const value = monthlyIncomeTarget.trim() ? asNonNegativeNumber(monthlyIncomeTarget) : null;
     if (monthlyIncomeTarget.trim() && value == null) {
-      setStatus("Monthly income target must be a non-negative number.");
+      setStatus("Monthly take-home baseline must be a non-negative number.");
       return;
     }
 
@@ -202,11 +239,11 @@ export default function BudgetPage() {
     });
 
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Could not update monthly income target.");
+      setStatus(result.error?.message ?? "Could not update monthly take-home baseline.");
       return;
     }
 
-    setStatus("Monthly income target saved.");
+    setStatus("Monthly take-home baseline saved.");
   }
 
   async function createExpense(input: { kind: "RECURRING" | "UPCOMING"; category: string; amount: string; dueDate?: string }) {
@@ -392,6 +429,10 @@ export default function BudgetPage() {
     return <Text>Loading budget board...</Text>;
   }
 
+  if (!hasLoaded && busy) {
+    return <Text>Loading budget data...</Text>;
+  }
+
   return (
     <PageShell
       title="Budget Board"
@@ -411,7 +452,7 @@ export default function BudgetPage() {
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <article className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-          <Text>Monthly income target</Text>
+          <Text>Monthly take-home baseline</Text>
           <p className="mt-2 text-3xl/9 font-semibold text-emerald-600">{toCurrency(monthlyIncomeNumber, currency)}</p>
         </article>
         <article className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
@@ -431,8 +472,12 @@ export default function BudgetPage() {
       </section>
 
       <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <Subheading>Monthly Target</Subheading>
-        <Text className="mt-1">Set your monthly income target in {region === "UK" ? "GBP" : "EUR"}.</Text>
+        <Subheading>Monthly Income Baseline</Subheading>
+        <Text className="mt-1">
+          Set your expected monthly take-home pay in {region === "UK" ? "GBP" : "EUR"}.
+          {" "}
+          This is for budget planning, not a savings goal.
+        </Text>
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <Input
             type="number"
@@ -440,7 +485,7 @@ export default function BudgetPage() {
             step="0.01"
             value={monthlyIncomeTarget}
             onChange={(event) => setMonthlyIncomeTarget(event.target.value)}
-            placeholder="Monthly income target"
+            placeholder="Expected monthly take-home pay"
             className="w-full max-w-xs"
           />
           <Button type="button" onClick={() => void saveMonthlyIncomeTarget()}>

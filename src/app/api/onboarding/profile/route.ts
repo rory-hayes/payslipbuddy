@@ -4,6 +4,8 @@ import { badRequest, forbidden, notFound, ok, serverError } from "@/lib/http";
 import { canCreateBudgetExpense, canCreateBudgetGoal } from "@/lib/services/entitlements";
 import { resolveRequestUser } from "@/lib/supabase/request-user";
 
+export const dynamic = "force-dynamic";
+
 const nonNegativeNumber = z.number().finite().nonnegative();
 
 const onboardingSchema = z.object({

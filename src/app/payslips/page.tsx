@@ -153,6 +153,7 @@ export default function PayslipsPage() {
   const [confidence, setConfidence] = useState(0.8);
   const [notes, setNotes] = useState("");
   const [message, setMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [rows, setRows] = useState<PayslipListRow[]>([]);
   const [loadingDraftId, setLoadingDraftId] = useState("");
   const [uploadBusy, setUploadBusy] = useState(false);
@@ -182,7 +183,20 @@ export default function PayslipsPage() {
 
   const hasEmployer = Boolean(employerId || employers[0]?.id);
 
+  function resetReviewState(nextRegion: "UK" | "IE" = region) {
+    setActivePayslipId("");
+    setDraft(createEmptyParsed(nextRegion));
+    setConfidence(0.8);
+    setNotes("");
+    setSelectedFile(null);
+    setIsDropTargetActive(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
+
   function setCandidateFile(file: File | null) {
+    setSuccessMessage("");
     if (!file) {
       setSelectedFile(null);
       return;
@@ -342,6 +356,7 @@ export default function PayslipsPage() {
     setDraft(result.data.parsed);
     setConfidence(result.data.confidence);
     setNotes(result.data.notes ?? "");
+    setSuccessMessage("");
     if (!silent) {
       setMessage(`Loaded review draft for payslip ${payslipId}.`);
     }
@@ -361,6 +376,7 @@ export default function PayslipsPage() {
   async function uploadAndExtract(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
+    setSuccessMessage("");
     const selectedEmployerId = employerId || employers[0]?.id;
     if (!selectedEmployerId) {
       setMessage("Create an employer before uploading.");
@@ -436,6 +452,7 @@ export default function PayslipsPage() {
 
   async function createEmployer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setSuccessMessage("");
     if (!user?.id) {
       setMessage("Sign in to add employers.");
       return;
@@ -461,6 +478,7 @@ export default function PayslipsPage() {
   }
 
   async function confirmDraft() {
+    setSuccessMessage("");
     if (!activePayslipId) {
       setMessage("Upload and extract a payslip first.");
       return;
@@ -488,7 +506,9 @@ export default function PayslipsPage() {
       return;
     }
 
-    setMessage(`Payslip ${confirm.data.payslip.id} confirmed.`);
+    setMessage("");
+    setSuccessMessage("Payslip confirmed and saved to history. The review form has been cleared.");
+    resetReviewState(region);
     await refreshList();
   }
 
@@ -517,13 +537,19 @@ export default function PayslipsPage() {
         <Badge color="zinc">Schema: {draft.schemaVersion}</Badge>
       </div>
 
+      {successMessage ? (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200">
+          {successMessage}
+        </div>
+      ) : null}
+
       {message ? (
         <div className="rounded-xl border border-zinc-950/10 bg-zinc-50 p-3 text-sm text-zinc-700 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-200">
           {message}
         </div>
       ) : null}
 
-      <section className="grid gap-4 lg:grid-cols-2">
+      <section className="grid items-start gap-4 lg:grid-cols-2">
         <article className="rounded-2xl border border-zinc-950/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
           <Subheading>Upload and Extract</Subheading>
           <Text className="mt-2">Drop a payslip file or browse your device. We extract first, then you can manually edit any field before confirmation.</Text>
@@ -686,28 +712,33 @@ export default function PayslipsPage() {
             </label>
           </div>
 
-          <label className="mt-4 block space-y-2">
-            <Text>Model confidence</Text>
-            <Input value={`${Math.round(confidence * 100)}%`} readOnly type="text" />
-          </label>
-
-          <label className="mt-4 block space-y-2">
-            <Text>Reviewer Notes</Text>
-            <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} className="h-24" />
-          </label>
-
-          {Object.keys(draft.fieldConfidence).length > 0 ? (
-            <div className="mt-4 rounded-xl border border-zinc-950/10 p-3 dark:border-white/10">
-              <Text className="font-medium text-zinc-950 dark:text-white">Field Confidence</Text>
-              <ul className="mt-2 space-y-1">
-                {Object.entries(draft.fieldConfidence).map(([field, value]) => (
-                  <li key={field} className="text-sm/6 text-zinc-700 dark:text-zinc-300">
-                    {field}: {(value * 100).toFixed(0)}%
-                  </li>
-                ))}
-              </ul>
+          <div className="mt-4 rounded-xl border border-zinc-950/10 p-3 dark:border-white/10">
+            <div className="flex items-center justify-between gap-2">
+              <Text className="font-medium text-zinc-950 dark:text-white">Model confidence</Text>
+              <Badge color={confidenceBadgeColor(confidence) ?? "zinc"}>{Math.round(confidence * 100)}%</Badge>
             </div>
-          ) : null}
+
+            <details className="mt-3">
+              <summary className="cursor-pointer text-sm font-medium text-zinc-700 dark:text-zinc-300">Review notes and field confidence</summary>
+              <label className="mt-3 block space-y-2">
+                <Text>Reviewer Notes</Text>
+                <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} className="h-20" />
+              </label>
+
+              {Object.keys(draft.fieldConfidence).length > 0 ? (
+                <div className="mt-3 rounded-xl border border-zinc-950/10 p-3 dark:border-white/10">
+                  <Text className="font-medium text-zinc-950 dark:text-white">Field Confidence</Text>
+                  <ul className="mt-2 space-y-1">
+                    {Object.entries(draft.fieldConfidence).map(([field, value]) => (
+                      <li key={field} className="text-sm/6 text-zinc-700 dark:text-zinc-300">
+                        {field}: {(value * 100).toFixed(0)}%
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </details>
+          </div>
 
           {requiredErrors.length > 0 ? (
             <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">

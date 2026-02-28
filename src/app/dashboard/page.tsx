@@ -119,7 +119,9 @@ export default function DashboardPage() {
   const { user, loading: authLoading } = useRequireAuth();
   const [data, setData] = useState<DashboardOverview | null>(null);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const requestVersionRef = useRef(0);
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
   const [chartWidth, setChartWidth] = useState(0);
 
@@ -128,13 +130,21 @@ export default function DashboardPage() {
       return;
     }
 
+    const requestVersion = ++requestVersionRef.current;
     setLoading(true);
+    setError("");
     apiFetch<DashboardOverview>(`/api/dashboard/overview?userId=${user.id}`).then((res) => {
+      if (requestVersion !== requestVersionRef.current) {
+        return;
+      }
+
       setLoading(false);
+      setHasLoaded(true);
       if (!res.ok || !res.data) {
         setError(res.error?.message ?? "Could not load dashboard.");
         return;
       }
+      setError("");
       setData(res.data);
     });
   }, [user?.id]);
@@ -171,6 +181,10 @@ export default function DashboardPage() {
 
   if (authLoading) {
     return <Text>Loading your workspace...</Text>;
+  }
+
+  if (!hasLoaded && loading) {
+    return <Text>Loading dashboard analytics...</Text>;
   }
 
   const income = data?.budgetSnapshot.monthlyIncome ?? 0;
