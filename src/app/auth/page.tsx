@@ -112,22 +112,7 @@ function AuthPageContent() {
       <section className="hidden rounded-3xl border border-zinc-200 bg-white p-10 shadow-sm lg:block">
         <Badge color="blue">PaySlip Buddy Account</Badge>
         <Heading className="mt-6 max-w-xl">Create your secure payslip workspace and start your onboarding journey.</Heading>
-        <Text className="mt-4 max-w-xl">
-          Your account lets you store monthly uploads, track deduction changes, and generate professional annual reports.
-        </Text>
-        <ul className="mt-8 space-y-3">
-          {[
-            "Secure account login with Supabase authentication",
-            "Guided onboarding for region, household, and first employer",
-            "Personalized dashboard with budget and payroll trends"
-          ].map((item) => (
-            <li key={item} className="flex items-start gap-3 text-sm/6 text-zinc-700">
-              <span className="mt-2 h-1.5 w-1.5 rounded-full bg-zinc-900" aria-hidden />
-              {item}
-            </li>
-          ))}
-        </ul>
-        <div className="relative mt-8 overflow-hidden rounded-2xl border border-zinc-200">
+        <div className="relative mt-6 overflow-hidden rounded-2xl border border-zinc-200">
           <Image
             src="/branding/onboarding-journey-theme.webp"
             alt="Onboarding journey illustration"

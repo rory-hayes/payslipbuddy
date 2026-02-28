@@ -238,7 +238,8 @@ export default function BudgetPage() {
       return;
     }
 
-    setExpenses((rows) => [...rows, mapExpense(result.data.expense)]);
+    const createdExpense = result.data.expense;
+    setExpenses((rows) => [...rows, mapExpense(createdExpense)]);
     if (input.kind === "RECURRING") {
       setNewRecurringCategory("");
       setNewRecurringAmount("");
@@ -329,7 +330,8 @@ export default function BudgetPage() {
       return;
     }
 
-    setGoals((rows) => [...rows, mapGoal(result.data.goal)]);
+    const createdGoal = result.data.goal;
+    setGoals((rows) => [...rows, mapGoal(createdGoal)]);
     setNewGoalName("");
     setNewGoalTarget("");
     setNewGoalDate("");
