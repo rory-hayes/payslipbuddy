@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="PaySlip Buddy">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#1d4ed8" />
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#bg)" />
+  <path d="M18 16h20l8 8v24a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4V20a4 4 0 0 1 4-4z" fill="#f8fafc" opacity="0.95" />
+  <path d="M38 16v8h8" fill="none" stroke="#cbd5e1" stroke-width="2" />
+  <path d="M22 32h16M22 38h20M22 44h14" stroke="#334155" stroke-width="3" stroke-linecap="round" />
+  <circle cx="46" cy="46" r="9" fill="#0ea5e9" />
+  <path d="M42.5 46h7" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" />
+</svg>

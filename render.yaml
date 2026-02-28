@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: payslip-buddy
+    runtime: node
+    plan: free
+    autoDeploy: true
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+      - key: PAYSLIP_BUDDY_PERSIST_STATE
+        value: "true"
+      - key: PAYSLIP_BUDDY_STATE_FILE
+        value: /tmp/payslip-buddy-state.json
+      - key: APP_BASE_URL
+        sync: false
