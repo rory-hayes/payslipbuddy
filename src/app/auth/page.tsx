@@ -115,6 +115,8 @@ function AuthPageContent() {
             alt="Onboarding journey illustration"
             width={768}
             height={768}
+            sizes="(min-width: 1024px) 52vw, 100vw"
+            priority
             className="h-auto w-full"
           />
         </div>

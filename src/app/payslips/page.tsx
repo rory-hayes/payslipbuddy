@@ -183,7 +183,7 @@ export default function PayslipsPage() {
 
   const hasEmployer = Boolean(employerId || employers[0]?.id);
 
-  function resetReviewState(nextRegion: "UK" | "IE" = region) {
+  const resetReviewState = useCallback((nextRegion: "UK" | "IE" = region) => {
     setActivePayslipId("");
     setDraft(createEmptyParsed(nextRegion));
     setConfidence(0.8);
@@ -193,7 +193,7 @@ export default function PayslipsPage() {
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
-  }
+  }, [region]);
 
   function setCandidateFile(file: File | null) {
     setSuccessMessage("");
@@ -372,6 +372,21 @@ export default function PayslipsPage() {
       void loadExtractedDraft(latestExtracted.id, true);
     }
   }, [rows, activePayslipId, loadExtractedDraft]);
+
+  useEffect(() => {
+    if (!activePayslipId) {
+      return;
+    }
+
+    const activeRow = rows.find((row) => row.id === activePayslipId);
+    if (activeRow?.status !== "CONFIRMED") {
+      return;
+    }
+
+    setMessage("");
+    setSuccessMessage("Payslip confirmed and saved to history. The review form has been cleared.");
+    resetReviewState(region);
+  }, [activePayslipId, region, resetReviewState, rows]);
 
   async function uploadAndExtract(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

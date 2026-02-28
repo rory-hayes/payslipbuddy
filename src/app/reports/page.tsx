@@ -73,6 +73,7 @@ export default function ReportsPage() {
   const [busy, setBusy] = useState(false);
   const [plan, setPlan] = useState<"FREE" | "PLUS" | "PRO">("FREE");
   const [currency, setCurrency] = useState<"GBP" | "EUR">("GBP");
+  const [billingLoaded, setBillingLoaded] = useState(false);
 
   const canExportPdf = plan !== "FREE";
   const canExportXlsx = plan === "PRO";
@@ -99,10 +100,6 @@ export default function ReportsPage() {
   }, [user?.id, year]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
-
-  useEffect(() => {
     if (!user?.id) {
       return;
     }
@@ -112,8 +109,24 @@ export default function ReportsPage() {
         setPlan(result.data.user.plan);
         setCurrency(result.data.user.region === "IE" ? "EUR" : "GBP");
       }
+      setBillingLoaded(true);
     });
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !billingLoaded) {
+      return;
+    }
+
+    if (plan === "FREE") {
+      setBusy(false);
+      setReport(null);
+      setError("");
+      return;
+    }
+
+    void load();
+  }, [billingLoaded, load, plan, user?.id]);
 
   const majorSwingMonths = useMemo(() => {
     const rows = report?.monthlySeries ?? [];
@@ -208,6 +221,12 @@ export default function ReportsPage() {
       ) : null}
 
       {busy ? <Text>Loading annual report...</Text> : null}
+
+      {!busy && plan === "FREE" ? (
+        <div className="rounded-xl border border-zinc-950/10 bg-zinc-50 p-4 text-sm text-zinc-700 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-200">
+          Annual dashboard is available on paid plans.
+        </div>
+      ) : null}
 
       {report ? (
         <>

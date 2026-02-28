@@ -807,6 +807,7 @@ function OnboardingPageContent() {
             alt="Onboarding visual"
             width={960}
             height={960}
+            sizes="(min-width: 1024px) 38vw, 100vw"
             className="h-auto w-full max-w-[520px] object-contain"
             priority
           />
