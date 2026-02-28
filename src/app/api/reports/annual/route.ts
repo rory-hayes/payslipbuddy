@@ -2,28 +2,31 @@ import { inMemoryDb } from "@/lib/db/in-memory-db";
 import { badRequest, forbidden, notFound, ok, serverError } from "@/lib/http";
 import { canViewAnnualDashboard } from "@/lib/services/entitlements";
 import { buildAnnualReport } from "@/lib/services/reporting";
+import { resolveRequestUser } from "@/lib/supabase/request-user";
 
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
-    const userId = url.searchParams.get("userId");
-    const targetUserId = url.searchParams.get("targetUserId") ?? userId;
-    const year = Number(url.searchParams.get("year") ?? new Date().getFullYear());
-
-    if (!userId) {
-      return badRequest("Missing query param userId.");
+    const resolved = await resolveRequestUser({
+      request,
+      queryUserId: url.searchParams.get("userId")
+    });
+    if ("error" in resolved) {
+      return resolved.error;
     }
+
+    const viewer = inMemoryDb.ensureUser({
+      id: resolved.data.userId,
+      email: resolved.data.email
+    });
+    const targetUserId = url.searchParams.get("targetUserId") ?? viewer.id;
+    const year = Number(url.searchParams.get("year") ?? new Date().getFullYear());
 
     if (!Number.isInteger(year)) {
       return badRequest("Year must be an integer.");
     }
 
-    const viewer = inMemoryDb.getUser(userId);
-    if (!viewer) {
-      return notFound("User not found.");
-    }
-
-    const gate = canViewAnnualDashboard(userId);
+    const gate = canViewAnnualDashboard(viewer.id);
     if (!gate.allowed) {
       return forbidden(gate.reason ?? "Annual dashboard unavailable.");
     }
@@ -32,9 +35,9 @@ export async function GET(request: Request) {
       return notFound("Target user not found.");
     }
 
-    if (targetUserId !== userId) {
+    if (targetUserId !== viewer.id) {
       const shared = inMemoryDb
-        .listHouseholdsByUser(userId)
+        .listHouseholdsByUser(viewer.id)
         .some((household) => {
           if (household.ownerUserId === targetUserId) {
             return true;

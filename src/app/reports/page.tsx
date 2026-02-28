@@ -8,8 +8,8 @@ import { Subheading } from "@/components/catalyst/heading";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/catalyst/table";
 import { Text } from "@/components/catalyst/text";
 import { PageShell } from "@/components/page-shell";
+import { useRequireAuth } from "@/lib/auth/use-require-auth";
 import { apiFetch } from "@/lib/client-api";
-import { DEMO_USER_ID } from "@/lib/constants";
 
 interface AnnualReport {
   year: number;
@@ -65,6 +65,7 @@ function formatMoney(value: number, currency: "GBP" | "EUR") {
 }
 
 export default function ReportsPage() {
+  const { user, loading: authLoading } = useRequireAuth();
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
   const [report, setReport] = useState<AnnualReport | null>(null);
@@ -77,10 +78,14 @@ export default function ReportsPage() {
   const canExportXlsx = plan === "PRO";
 
   const load = useCallback(async () => {
+    if (!user?.id) {
+      return;
+    }
+
     setBusy(true);
     setError("");
 
-    const result = await apiFetch<AnnualReport>(`/api/reports/annual?userId=${DEMO_USER_ID}&year=${year}`);
+    const result = await apiFetch<AnnualReport>(`/api/reports/annual?userId=${user.id}&year=${year}`);
 
     if (!result.ok || !result.data) {
       setError(result.error?.message ?? "Could not load annual report.");
@@ -91,20 +96,24 @@ export default function ReportsPage() {
 
     setReport(result.data);
     setBusy(false);
-  }, [year]);
+  }, [user?.id, year]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   useEffect(() => {
-    apiFetch<BillingSummary>(`/api/billing/summary?userId=${DEMO_USER_ID}`).then((result) => {
+    if (!user?.id) {
+      return;
+    }
+
+    apiFetch<BillingSummary>(`/api/billing/summary?userId=${user.id}`).then((result) => {
       if (result.ok && result.data) {
         setPlan(result.data.user.plan);
         setCurrency(result.data.user.region === "IE" ? "EUR" : "GBP");
       }
     });
-  }, []);
+  }, [user?.id]);
 
   const majorSwingMonths = useMemo(() => {
     const rows = report?.monthlySeries ?? [];
@@ -118,6 +127,11 @@ export default function ReportsPage() {
   }, [report?.monthlySeries]);
 
   async function exportFile(format: "pdf" | "xlsx") {
+    if (!user?.id) {
+      setError("Sign in to export your annual report.");
+      return;
+    }
+
     if (format === "pdf" && !canExportPdf) {
       setError("PDF export requires a paid plan.");
       return;
@@ -134,7 +148,7 @@ export default function ReportsPage() {
         "content-type": "application/json"
       },
       body: JSON.stringify({
-        userId: DEMO_USER_ID,
+        userId: user.id,
         year,
         format
       })
@@ -153,6 +167,10 @@ export default function ReportsPage() {
     a.download = `annual-income-deductions-${year}.${format}`;
     a.click();
     window.URL.revokeObjectURL(url);
+  }
+
+  if (authLoading) {
+    return <Text>Loading reports workspace...</Text>;
   }
 
   return (

@@ -10,8 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Text } from "@/components/catalyst/text";
 import { Textarea } from "@/components/catalyst/textarea";
 import { PageShell } from "@/components/page-shell";
+import { useRequireAuth } from "@/lib/auth/use-require-auth";
 import { apiFetch } from "@/lib/client-api";
-import { DEMO_USER_ID } from "@/lib/constants";
 import type { ParsedPayslip } from "@/lib/types/domain";
 
 interface UploadedPayload {
@@ -84,6 +84,7 @@ function createEmptyParsed(region: "UK" | "IE"): ParsedPayslip {
 }
 
 export default function PayslipsPage() {
+  const { user, loading: authLoading } = useRequireAuth();
   const [region, setRegion] = useState<"UK" | "IE">("UK");
   const [storagePath, setStoragePath] = useState("uploads/demo-payslip.pdf");
   const [mimeType, setMimeType] = useState("application/pdf");
@@ -120,26 +121,38 @@ export default function PayslipsPage() {
   }, [draft]);
 
   const refreshList = useCallback(async () => {
-    const result = await apiFetch<PayslipListResponse>(`/api/payslips?userId=${DEMO_USER_ID}`);
+    if (!user?.id) {
+      return;
+    }
+
+    const result = await apiFetch<PayslipListResponse>(`/api/payslips?userId=${user.id}`);
     if (result.ok && result.data) {
       setRows(result.data.rows);
     }
-  }, []);
+  }, [user?.id]);
 
   const refreshEmployers = useCallback(async () => {
-    const result = await apiFetch<{ employers: EmployerRow[] }>(`/api/employers?userId=${DEMO_USER_ID}`);
+    if (!user?.id) {
+      return;
+    }
+
+    const result = await apiFetch<{ employers: EmployerRow[] }>(`/api/employers?userId=${user.id}`);
     if (result.ok && result.data) {
       setEmployers(result.data.employers);
       if (!employerId && result.data.employers[0]) {
         setEmployerId(result.data.employers[0].id);
       }
     }
-  }, [employerId]);
+  }, [employerId, user?.id]);
 
   useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
     void refreshList();
     void refreshEmployers();
-    apiFetch<{ user: { region: "UK" | "IE" } }>(`/api/billing/summary?userId=${DEMO_USER_ID}`).then((result) => {
+    apiFetch<{ user: { region: "UK" | "IE" } }>(`/api/billing/summary?userId=${user.id}`).then((result) => {
       if (!result.ok || !result.data) {
         return;
       }
@@ -159,23 +172,16 @@ export default function PayslipsPage() {
         };
       });
     });
-  }, [refreshList, refreshEmployers]);
+  }, [refreshList, refreshEmployers, user?.id]);
 
-  useEffect(() => {
-    if (activePayslipId || rows.length === 0) {
+  const loadExtractedDraft = useCallback(async (payslipId: string, silent = false) => {
+    if (!user?.id) {
       return;
     }
 
-    const latestExtracted = rows.find((row) => row.status === "EXTRACTED");
-    if (latestExtracted) {
-      void loadExtractedDraft(latestExtracted.id, true);
-    }
-  }, [rows, activePayslipId]);
-
-  async function loadExtractedDraft(payslipId: string, silent = false) {
     setLoadingDraftId(payslipId);
 
-    const result = await apiFetch<ExtractDraftPayload>(`/api/payslips/${payslipId}/extract?userId=${DEMO_USER_ID}`);
+    const result = await apiFetch<ExtractDraftPayload>(`/api/payslips/${payslipId}/extract?userId=${user.id}`);
     setLoadingDraftId("");
 
     if (!result.ok || !result.data) {
@@ -192,7 +198,18 @@ export default function PayslipsPage() {
     if (!silent) {
       setMessage(`Loaded review draft for payslip ${payslipId}.`);
     }
-  }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (activePayslipId || rows.length === 0) {
+      return;
+    }
+
+    const latestExtracted = rows.find((row) => row.status === "EXTRACTED");
+    if (latestExtracted) {
+      void loadExtractedDraft(latestExtracted.id, true);
+    }
+  }, [rows, activePayslipId, loadExtractedDraft]);
 
   async function uploadAndExtract(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -203,10 +220,15 @@ export default function PayslipsPage() {
       return;
     }
 
+    if (!user?.id) {
+      setMessage("Sign in to upload payslips.");
+      return;
+    }
+
     const upload = await apiFetch<UploadedPayload>("/api/payslips/upload", {
       method: "POST",
       body: JSON.stringify({
-        userId: DEMO_USER_ID,
+        userId: user.id,
         employerId: selectedEmployerId,
         fileName: storagePath.split("/").pop() ?? "payslip.pdf",
         mimeType,
@@ -222,7 +244,7 @@ export default function PayslipsPage() {
     const payslipId = upload.data.payslip.id;
     setActivePayslipId(payslipId);
 
-    const extract = await apiFetch<ExtractPayload>(`/api/payslips/${payslipId}/extract`, {
+    const extract = await apiFetch<ExtractPayload>(`/api/payslips/${payslipId}/extract?userId=${user.id}`, {
       method: "POST",
       body: JSON.stringify({})
     });
@@ -245,10 +267,15 @@ export default function PayslipsPage() {
 
   async function createEmployer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!user?.id) {
+      setMessage("Sign in to add employers.");
+      return;
+    }
+
     const result = await apiFetch<{ employer: EmployerRow }>("/api/employers", {
       method: "POST",
       body: JSON.stringify({
-        userId: DEMO_USER_ID,
+        userId: user.id,
         name: newEmployerName
       })
     });
@@ -269,9 +296,13 @@ export default function PayslipsPage() {
       setMessage("Upload and extract a payslip first.");
       return;
     }
+    if (!user?.id) {
+      setMessage("Sign in to confirm payslips.");
+      return;
+    }
 
     const confirm = await apiFetch<{ payslip: { id: string; status: string } }>(
-      `/api/payslips/${activePayslipId}/confirm`,
+      `/api/payslips/${activePayslipId}/confirm?userId=${user.id}`,
       {
         method: "POST",
         body: JSON.stringify({
@@ -301,6 +332,10 @@ export default function PayslipsPage() {
         [field]: true
       }
     }));
+  }
+
+  if (authLoading) {
+    return <Text>Loading payslip workspace...</Text>;
   }
 
   return (

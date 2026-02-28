@@ -1,6 +1,7 @@
 import { inMemoryDb } from "@/lib/db/in-memory-db";
-import { badRequest, forbidden, notFound, parseBody, serverError } from "@/lib/http";
+import { badRequest, forbidden, parseBody, serverError } from "@/lib/http";
 import { getStripe } from "@/lib/stripe";
+import { resolveRequestUser } from "@/lib/supabase/request-user";
 import { checkoutBodySchema } from "@/lib/validation/schemas";
 
 function priceIdFromPlan(planTier: "PLUS" | "PRO", billingCycle: "monthly" | "annual"): string | null {
@@ -24,10 +25,17 @@ export async function POST(request: Request) {
       return body.error;
     }
 
-    const user = inMemoryDb.getUser(body.data.userId);
-    if (!user) {
-      return notFound("User not found.");
+    const resolved = await resolveRequestUser({
+      request,
+      bodyUserId: body.data.userId
+    });
+    if ("error" in resolved) {
+      return resolved.error;
     }
+    const user = inMemoryDb.ensureUser({
+      id: resolved.data.userId,
+      email: resolved.data.email
+    });
 
     if (!inMemoryDb.isOwnerOfAnyHousehold(user.id)) {
       return forbidden("Only household owners can manage billing.");

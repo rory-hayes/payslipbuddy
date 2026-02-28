@@ -1,27 +1,30 @@
 import { inMemoryDb } from "@/lib/db/in-memory-db";
-import { badRequest, notFound, ok } from "@/lib/http";
+import { ok } from "@/lib/http";
 import { canUseHouseholdSharing, usageMeter } from "@/lib/services/entitlements";
+import { resolveRequestUser } from "@/lib/supabase/request-user";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const userId = url.searchParams.get("userId");
-
-  if (!userId) {
-    return badRequest("Missing query param userId.");
+  const resolved = await resolveRequestUser({
+    request,
+    queryUserId: url.searchParams.get("userId")
+  });
+  if ("error" in resolved) {
+    return resolved.error;
   }
 
-  const user = inMemoryDb.getUser(userId);
-  if (!user) {
-    return notFound("User not found.");
-  }
+  const user = inMemoryDb.ensureUser({
+    id: resolved.data.userId,
+    email: resolved.data.email
+  });
 
-  const households = inMemoryDb.listHouseholdsByUser(userId);
+  const households = inMemoryDb.listHouseholdsByUser(user.id);
   const primary = households[0] ?? null;
 
-  const sharingGate = canUseHouseholdSharing(userId);
+  const sharingGate = canUseHouseholdSharing(user.id);
 
   return ok({
-    usage: usageMeter(userId),
+    usage: usageMeter(user.id),
     sharing: sharingGate,
     household: primary,
     members: primary ? inMemoryDb.listMembersByHousehold(primary.id) : []

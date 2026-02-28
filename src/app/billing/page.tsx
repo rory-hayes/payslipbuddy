@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/catalyst/badge";
 import { Button } from "@/components/catalyst/button";
 import { Subheading } from "@/components/catalyst/heading";
 import { Text } from "@/components/catalyst/text";
 import { PageShell } from "@/components/page-shell";
+import { useRequireAuth } from "@/lib/auth/use-require-auth";
 import { apiFetch } from "@/lib/client-api";
-import { DEMO_USER_ID } from "@/lib/constants";
 
 interface BillingSummary {
   user: {
@@ -25,29 +25,42 @@ interface BillingSummary {
 }
 
 export default function BillingPage() {
+  const { user, loading: authLoading } = useRequireAuth();
   const [summary, setSummary] = useState<BillingSummary | null>(null);
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function refresh() {
-    const result = await apiFetch<BillingSummary>(`/api/billing/summary?userId=${DEMO_USER_ID}`);
+  const refresh = useCallback(async () => {
+    if (!user?.id) {
+      return;
+    }
+
+    const result = await apiFetch<BillingSummary>(`/api/billing/summary?userId=${user.id}`);
     if (result.ok && result.data) {
       setSummary(result.data);
     }
-  }
+  }, [user?.id]);
 
   useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
     void refresh();
-  }, []);
+  }, [refresh, user?.id]);
 
   async function startCheckout(planTier: "PLUS" | "PRO", billingCycle: "monthly" | "annual") {
+    if (!user?.id) {
+      setStatus("Sign in to manage billing.");
+      return;
+    }
+
     setLoading(true);
     setStatus("");
 
     const response = await apiFetch<{ checkoutUrl: string }>("/api/billing/checkout", {
       method: "POST",
       body: JSON.stringify({
-        userId: DEMO_USER_ID,
+        userId: user.id,
         planTier,
         billingCycle,
         successUrl: `${window.location.origin}/billing?success=1`,
@@ -66,9 +79,14 @@ export default function BillingPage() {
   }
 
   async function toggleReminder(enabled: boolean) {
+    if (!user?.id) {
+      setStatus("Sign in to manage reminders.");
+      return;
+    }
+
     const response = await apiFetch<{ enabled: boolean }>("/api/reminders/preference", {
       method: "POST",
-      body: JSON.stringify({ userId: DEMO_USER_ID, enabled })
+      body: JSON.stringify({ userId: user.id, enabled })
     });
 
     if (!response.ok) {
@@ -81,10 +99,15 @@ export default function BillingPage() {
   }
 
   async function simulateActivation(planTier: "PLUS" | "PRO", billingCycle: "monthly" | "annual") {
+    if (!user?.id) {
+      setStatus("Sign in to manage subscriptions.");
+      return;
+    }
+
     const response = await apiFetch<{ mappedStatus: string }>("/api/billing/webhook", {
       method: "POST",
       body: JSON.stringify({
-        userId: DEMO_USER_ID,
+        userId: user.id,
         status: "active",
         planTier,
         billingCycle
@@ -98,6 +121,10 @@ export default function BillingPage() {
 
     setStatus(`Simulated subscription activation: ${planTier} ${billingCycle}.`);
     await refresh();
+  }
+
+  if (authLoading) {
+    return <Text>Loading billing workspace...</Text>;
   }
 
   return (

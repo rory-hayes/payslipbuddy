@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/catalyst/badge";
 import { Button } from "@/components/catalyst/button";
 import { Subheading } from "@/components/catalyst/heading";
@@ -8,8 +8,8 @@ import { Input } from "@/components/catalyst/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/catalyst/table";
 import { Text } from "@/components/catalyst/text";
 import { PageShell } from "@/components/page-shell";
+import { useRequireAuth } from "@/lib/auth/use-require-auth";
 import { apiFetch } from "@/lib/client-api";
-import { DEMO_HOUSEHOLD_ID, DEMO_USER_ID } from "@/lib/constants";
 
 interface HouseholdSummary {
   usage: {
@@ -32,32 +32,48 @@ interface HouseholdSummary {
 }
 
 export default function HouseholdPage() {
+  const { user, loading: authLoading } = useRequireAuth();
   const [data, setData] = useState<HouseholdSummary | null>(null);
   const [email, setEmail] = useState("partner@example.com");
   const [status, setStatus] = useState("");
 
-  async function refresh() {
-    const result = await apiFetch<HouseholdSummary>(`/api/household/summary?userId=${DEMO_USER_ID}`);
+  const refresh = useCallback(async () => {
+    if (!user?.id) {
+      return;
+    }
+
+    const result = await apiFetch<HouseholdSummary>(`/api/household/summary?userId=${user.id}`);
     if (result.ok && result.data) {
       setData(result.data);
     } else {
       setStatus(result.error?.message ?? "Failed to load household summary.");
     }
-  }
+  }, [user?.id]);
 
   useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
     void refresh();
-  }, []);
+  }, [refresh, user?.id]);
 
   async function invite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("");
+    if (!user?.id) {
+      setStatus("Sign in to send household invites.");
+      return;
+    }
+    if (!data?.household?.id) {
+      setStatus("No household found for this account.");
+      return;
+    }
 
     const result = await apiFetch<{ message: string }>("/api/household/invite", {
       method: "POST",
       body: JSON.stringify({
-        householdId: DEMO_HOUSEHOLD_ID,
-        invitedBy: DEMO_USER_ID,
+        householdId: data.household.id,
+        invitedBy: user.id,
         email,
         role: "MEMBER"
       })
@@ -70,6 +86,10 @@ export default function HouseholdPage() {
 
     setStatus(result.data.message);
     await refresh();
+  }
+
+  if (authLoading) {
+    return <Text>Loading household workspace...</Text>;
   }
 
   return (

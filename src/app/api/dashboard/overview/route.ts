@@ -1,18 +1,18 @@
-import { badRequest, notFound, ok } from "@/lib/http";
+import { ok } from "@/lib/http";
+import { resolveRequestUser } from "@/lib/supabase/request-user";
 import { getDashboardOverview } from "@/lib/services/dashboard";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const userId = url.searchParams.get("userId");
-
-  if (!userId) {
-    return badRequest("Missing query param userId.");
+  const resolved = await resolveRequestUser({
+    request,
+    queryUserId: url.searchParams.get("userId")
+  });
+  if ("error" in resolved) {
+    return resolved.error;
   }
 
-  const overview = getDashboardOverview(userId);
-  if (!overview) {
-    return notFound("User not found.");
-  }
+  const overview = getDashboardOverview(resolved.data.userId);
 
   return ok(overview);
 }

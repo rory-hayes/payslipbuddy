@@ -209,6 +209,118 @@ export const inMemoryDb = {
     return getState().users.find((user) => user.id === userId) ?? null;
   },
 
+  ensureUser(input: { id: string; email?: string | null }) {
+    const existing = this.getUser(input.id);
+
+    if (existing) {
+      if (input.email && existing.email !== input.email) {
+        existing.email = input.email;
+        persistState();
+      }
+
+      if (this.listHouseholdsByUser(existing.id).length === 0) {
+        const household: Household = {
+          id: id("house"),
+          ownerUserId: existing.id,
+          name: "My Household",
+          createdAt: nowIso()
+        };
+        getState().households.push(household);
+        getState().householdMembers.push({
+          householdId: household.id,
+          userId: existing.id,
+          role: "OWNER",
+          status: "ACTIVE",
+          createdAt: nowIso()
+        });
+        getState().goals.push({
+          id: id("goal"),
+          householdId: household.id,
+          name: "Emergency Buffer",
+          targetAmount: 3000,
+          targetDate: null,
+          progressAmount: 0,
+          createdAt: nowIso()
+        });
+      }
+
+      if (!this.getUsage(existing.id)) {
+        getState().usage.push({
+          userId: existing.id,
+          freePayslipsUsed: 0,
+          freeCsvUsed: 0,
+          subscriptionStatus: "TRIAL"
+        });
+      }
+
+      if (this.listEmployersByUser(existing.id).length === 0) {
+        getState().employers.push({
+          id: id("emp"),
+          userId: existing.id,
+          name: "Primary Employer",
+          createdAt: nowIso()
+        });
+      }
+
+      persistState();
+      return existing;
+    }
+
+    const user: UserProfile = {
+      id: input.id,
+      email: input.email ?? `${input.id}@payslipbuddy.local`,
+      region: "UK",
+      currency: "GBP",
+      plan: "FREE",
+      billingCycle: null,
+      reminderEnabled: true,
+      createdAt: nowIso()
+    };
+
+    const household: Household = {
+      id: id("house"),
+      ownerUserId: user.id,
+      name: "My Household",
+      createdAt: nowIso()
+    };
+
+    const employer: Employer = {
+      id: id("emp"),
+      userId: user.id,
+      name: "Primary Employer",
+      createdAt: nowIso()
+    };
+
+    getState().users.push(user);
+    getState().households.push(household);
+    getState().householdMembers.push({
+      householdId: household.id,
+      userId: user.id,
+      role: "OWNER",
+      status: "ACTIVE",
+      createdAt: nowIso()
+    });
+    getState().goals.push({
+      id: id("goal"),
+      householdId: household.id,
+      name: "Emergency Buffer",
+      targetAmount: 3000,
+      targetDate: null,
+      progressAmount: 0,
+      createdAt: nowIso()
+    });
+    getState().employers.push(employer);
+    getState().usage.push({
+      userId: user.id,
+      freePayslipsUsed: 0,
+      freeCsvUsed: 0,
+      subscriptionStatus: "TRIAL"
+    });
+
+    persistState();
+    return user;
+  },
+
   listUsers() {
     return getState().users;
   },

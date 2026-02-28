@@ -1,6 +1,7 @@
 import { inMemoryDb } from "@/lib/db/in-memory-db";
-import { badRequest, notFound, ok, parseBody, serverError } from "@/lib/http";
+import { badRequest, forbidden, notFound, ok, parseBody, serverError } from "@/lib/http";
 import { validateParsedPayslip } from "@/lib/services/payslip-extraction";
+import { resolveRequestUser } from "@/lib/supabase/request-user";
 import { confirmPayslipBodySchema } from "@/lib/validation/schemas";
 import type { ParsedPayslip } from "@/lib/types/domain";
 
@@ -25,10 +26,27 @@ type RouteContext = {
 export async function POST(request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
+    const resolved = await resolveRequestUser({
+      request,
+      queryUserId: new URL(request.url).searchParams.get("userId")
+    });
+    if ("error" in resolved) {
+      return resolved.error;
+    }
+
     const payslip = inMemoryDb.getPayslip(id);
     if (!payslip) {
       return notFound("Payslip not found.");
     }
+
+    if (payslip.userId !== resolved.data.userId) {
+      return forbidden("Access denied for this payslip.");
+    }
+
+    inMemoryDb.ensureUser({
+      id: resolved.data.userId,
+      email: resolved.data.email
+    });
 
     const body = await parseBody(request, confirmPayslipBodySchema);
     if ("error" in body) {

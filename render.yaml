@@ -4,8 +4,9 @@ services:
     runtime: node
     plan: free
     autoDeploy: true
+    healthCheckPath: /
     buildCommand: npm ci && npm run build
-    startCommand: npm run start
+    startCommand: npm run start -- --port $PORT
     envVars:
       - key: NODE_VERSION
         value: 20
@@ -15,5 +16,11 @@ services:
         value: "true"
       - key: PAYSLIP_BUDDY_STATE_FILE
         value: /tmp/payslip-buddy-state.json
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
       - key: APP_BASE_URL
         sync: false

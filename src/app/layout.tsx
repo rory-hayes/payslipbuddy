@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
 import { ApplicationLayout } from "@/components/application-layout";
+import { AuthProvider } from "@/components/auth-provider";
 
 export const metadata: Metadata = {
   title: {
@@ -22,7 +23,9 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
         <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
       </head>
       <body>
-        <ApplicationLayout>{children}</ApplicationLayout>
+        <AuthProvider>
+          <ApplicationLayout>{children}</ApplicationLayout>
+        </AuthProvider>
       </body>
     </html>
   );

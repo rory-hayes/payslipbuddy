@@ -1,19 +1,22 @@
 import { inMemoryDb } from "@/lib/db/in-memory-db";
-import { badRequest, notFound, ok } from "@/lib/http";
+import { ok } from "@/lib/http";
 import { usageMeter } from "@/lib/services/entitlements";
+import { resolveRequestUser } from "@/lib/supabase/request-user";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const userId = url.searchParams.get("userId");
-
-  if (!userId) {
-    return badRequest("Missing query param userId.");
+  const resolved = await resolveRequestUser({
+    request,
+    queryUserId: url.searchParams.get("userId")
+  });
+  if ("error" in resolved) {
+    return resolved.error;
   }
 
-  const user = inMemoryDb.getUser(userId);
-  if (!user) {
-    return notFound("User not found.");
-  }
+  const user = inMemoryDb.ensureUser({
+    id: resolved.data.userId,
+    email: resolved.data.email
+  });
 
   return ok({
     user: {
@@ -24,6 +27,6 @@ export async function GET(request: Request) {
       reminderEnabled: user.reminderEnabled,
       canManageBilling: inMemoryDb.isOwnerOfAnyHousehold(user.id)
     },
-    usage: usageMeter(userId)
+    usage: usageMeter(user.id)
   });
 }

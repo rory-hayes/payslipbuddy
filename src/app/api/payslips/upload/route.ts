@@ -1,6 +1,7 @@
 import { inMemoryDb } from "@/lib/db/in-memory-db";
 import { badRequest, created, forbidden, notFound, parseBody, serverError } from "@/lib/http";
 import { canUploadPayslip, canUseEmployer, consumePayslipUpload, usageMeter } from "@/lib/services/entitlements";
+import { resolveRequestUser } from "@/lib/supabase/request-user";
 import { uploadPayslipBodySchema } from "@/lib/validation/schemas";
 
 const supportedMimeTypes = new Set(["application/pdf", "image/png", "image/jpeg", "image/jpg", "image/webp"]);
@@ -12,10 +13,17 @@ export async function POST(request: Request) {
       return body.error;
     }
 
-    const user = inMemoryDb.getUser(body.data.userId);
-    if (!user) {
-      return notFound("User not found.");
+    const resolved = await resolveRequestUser({
+      request,
+      bodyUserId: body.data.userId
+    });
+    if ("error" in resolved) {
+      return resolved.error;
     }
+    const user = inMemoryDb.ensureUser({
+      id: resolved.data.userId,
+      email: resolved.data.email
+    });
 
     const entitlement = canUploadPayslip(user.id);
     if (!entitlement.allowed) {

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { inMemoryDb } from "@/lib/db/in-memory-db";
-import { badRequest, created, notFound, ok, serverError } from "@/lib/http";
+import { badRequest, created, ok, serverError } from "@/lib/http";
+import { resolveRequestUser } from "@/lib/supabase/request-user";
 
 const createEmployerSchema = z.object({
   userId: z.string().min(1),
@@ -9,17 +10,20 @@ const createEmployerSchema = z.object({
 });
 
 export async function GET(request: Request) {
-  const userId = new URL(request.url).searchParams.get("userId");
-  if (!userId) {
-    return badRequest("Missing query param userId.");
+  const resolved = await resolveRequestUser({
+    request,
+    queryUserId: new URL(request.url).searchParams.get("userId")
+  });
+  if ("error" in resolved) {
+    return resolved.error;
   }
 
-  const user = inMemoryDb.getUser(userId);
-  if (!user) {
-    return notFound("User not found.");
-  }
+  const user = inMemoryDb.ensureUser({
+    id: resolved.data.userId,
+    email: resolved.data.email
+  });
 
-  return ok({ employers: inMemoryDb.listEmployersByUser(userId) });
+  return ok({ employers: inMemoryDb.listEmployersByUser(user.id) });
 }
 
 export async function POST(request: Request) {
@@ -30,10 +34,17 @@ export async function POST(request: Request) {
       return badRequest("Invalid employer payload.", parsed.error.flatten());
     }
 
-    const user = inMemoryDb.getUser(parsed.data.userId);
-    if (!user) {
-      return notFound("User not found.");
+    const resolved = await resolveRequestUser({
+      request,
+      bodyUserId: parsed.data.userId
+    });
+    if ("error" in resolved) {
+      return resolved.error;
     }
+    const user = inMemoryDb.ensureUser({
+      id: resolved.data.userId,
+      email: resolved.data.email
+    });
 
     const duplicate = inMemoryDb
       .listEmployersByUser(user.id)

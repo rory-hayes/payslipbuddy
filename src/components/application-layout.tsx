@@ -13,8 +13,10 @@ import {
 } from "@heroicons/react/20/solid";
 import type { ComponentProps, ComponentType, ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/components/auth-provider";
 import { Avatar } from "@/components/catalyst/avatar";
 import { Badge } from "@/components/catalyst/badge";
+import { Button } from "@/components/catalyst/button";
 import { Navbar, NavbarLabel, NavbarSection, NavbarSpacer } from "@/components/catalyst/navbar";
 import { SidebarLayout } from "@/components/catalyst/sidebar-layout";
 import {
@@ -62,8 +64,19 @@ function currentLabel(pathname: string) {
   return current?.label ?? "PaySlip Buddy";
 }
 
+function usesPublicLayout(pathname: string) {
+  return pathname === "/" || pathname.startsWith("/auth") || pathname.startsWith("/onboarding");
+}
+
 export function ApplicationLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const { user, signOut } = useAuth();
+
+  if (usesPublicLayout(pathname)) {
+    return <div className="mx-auto min-h-svh w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{children}</div>;
+  }
+
+  const userInitials = (user?.email ?? "PB").slice(0, 2).toUpperCase();
 
   return (
     <SidebarLayout
@@ -76,6 +89,9 @@ export function ApplicationLayout({ children }: { children: ReactNode }) {
           <NavbarSpacer />
           <NavbarSection>
             <Badge color="blue">{currentLabel(pathname)}</Badge>
+          </NavbarSection>
+          <NavbarSection className="max-sm:hidden">
+            <Badge color="zinc">{user?.email ?? "Guest"}</Badge>
           </NavbarSection>
         </Navbar>
       }
@@ -129,15 +145,24 @@ export function ApplicationLayout({ children }: { children: ReactNode }) {
             <SidebarSection>
               <SidebarItem href="/onboarding" current={isCurrentRoute(pathname, "/onboarding")}>
                 <span className="flex min-w-0 items-center gap-3">
-                  <Avatar square initials="RH" className="size-8 bg-zinc-200 text-zinc-700" />
+                  <Avatar square initials={userInitials} className="size-8 bg-zinc-200 text-zinc-700" />
                   <span className="min-w-0">
-                    <span className="block truncate text-sm/5 font-medium text-zinc-950 dark:text-white">Workspace</span>
+                    <span className="block truncate text-sm/5 font-medium text-zinc-950 dark:text-white">
+                      {user?.email ?? "Workspace"}
+                    </span>
                     <span className="block truncate text-xs/5 font-normal text-zinc-500 dark:text-zinc-400">
                       Configure profile
                     </span>
                   </span>
                 </span>
               </SidebarItem>
+            </SidebarSection>
+            <SidebarSection>
+              <div className="px-2">
+                <Button plain onClick={() => void signOut()} className="w-full justify-start">
+                  Sign out
+                </Button>
+              </div>
             </SidebarSection>
           </SidebarFooter>
         </Sidebar>

@@ -28,10 +28,7 @@ function mapStripeStatus(status: string): "ACTIVE" | "PAST_DUE" | "CANCELED" {
 }
 
 function applyPlan(userId: string, planTier?: string, billingCycle?: string) {
-  const user = inMemoryDb.getUser(userId);
-  if (!user) {
-    return;
-  }
+  const user = inMemoryDb.ensureUser({ id: userId });
 
   const nextPlan = planTier === "PRO" ? "PRO" : planTier === "PLUS" ? "PLUS" : user.plan;
   const nextCycle =

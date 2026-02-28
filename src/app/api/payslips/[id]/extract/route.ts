@@ -1,7 +1,8 @@
 import { inMemoryDb } from "@/lib/db/in-memory-db";
-import { badRequest, forbidden, notFound, ok, serverError } from "@/lib/http";
+import { forbidden, notFound, ok, serverError } from "@/lib/http";
 import { enqueueJob, processJob } from "@/lib/services/jobs";
 import { extractPayslip } from "@/lib/services/payslip-extraction";
+import { resolveRequestUser } from "@/lib/supabase/request-user";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -10,16 +11,28 @@ type RouteContext = {
 export async function POST(request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
+    const url = new URL(request.url);
     const payslip = inMemoryDb.getPayslip(id);
 
     if (!payslip) {
       return notFound("Payslip not found.");
     }
 
-    const user = inMemoryDb.getUser(payslip.userId);
-    if (!user) {
-      return notFound("User not found.");
+    const resolved = await resolveRequestUser({
+      request,
+      queryUserId: url.searchParams.get("userId")
+    });
+    if ("error" in resolved) {
+      return resolved.error;
     }
+
+    if (payslip.userId !== resolved.data.userId) {
+      return forbidden("Access denied for this payslip.");
+    }
+    const user = inMemoryDb.ensureUser({
+      id: resolved.data.userId,
+      email: resolved.data.email
+    });
 
     const file = inMemoryDb.getFile(payslip.sourceFileId);
     if (!file) {
@@ -80,10 +93,12 @@ export async function POST(request: Request, context: RouteContext) {
 export async function GET(request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
-    const userId = new URL(request.url).searchParams.get("userId");
-
-    if (!userId) {
-      return badRequest("Missing query param userId.");
+    const resolved = await resolveRequestUser({
+      request,
+      queryUserId: new URL(request.url).searchParams.get("userId")
+    });
+    if ("error" in resolved) {
+      return resolved.error;
     }
 
     const payslip = inMemoryDb.getPayslip(id);
@@ -91,7 +106,7 @@ export async function GET(request: Request, context: RouteContext) {
       return notFound("Payslip not found.");
     }
 
-    if (payslip.userId !== userId) {
+    if (payslip.userId !== resolved.data.userId) {
       return forbidden("Access denied for this payslip.");
     }
 

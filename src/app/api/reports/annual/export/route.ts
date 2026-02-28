@@ -4,6 +4,7 @@ import { badRequest, forbidden, serverError } from "@/lib/http";
 import { canExportAnnual } from "@/lib/services/entitlements";
 import { enqueueJob, processJob } from "@/lib/services/jobs";
 import { annualReportToPdf, annualReportToWorkbook, buildAnnualReport } from "@/lib/services/reporting";
+import { resolveRequestUser } from "@/lib/supabase/request-user";
 
 const exportSchema = z.object({
   userId: z.string().min(1),
@@ -21,20 +22,27 @@ export async function POST(request: Request) {
       return badRequest("Invalid export payload.", parsed.error.flatten());
     }
 
-    const targetUserId = parsed.data.targetUserId ?? parsed.data.userId;
-    const gate = canExportAnnual(parsed.data.userId, parsed.data.format);
+    const resolved = await resolveRequestUser({
+      request,
+      bodyUserId: parsed.data.userId
+    });
+    if ("error" in resolved) {
+      return resolved.error;
+    }
+
+    const viewer = inMemoryDb.ensureUser({
+      id: resolved.data.userId,
+      email: resolved.data.email
+    });
+    const targetUserId = parsed.data.targetUserId ?? viewer.id;
+    const gate = canExportAnnual(viewer.id, parsed.data.format);
     if (!gate.allowed) {
       return forbidden(gate.reason ?? "Export blocked for current plan.");
     }
 
-    if (targetUserId !== parsed.data.userId) {
-      const viewer = inMemoryDb.getUser(parsed.data.userId);
-      if (!viewer) {
-        return forbidden("Viewer not found.");
-      }
-
+    if (targetUserId !== viewer.id) {
       const shared = inMemoryDb
-        .listHouseholdsByUser(parsed.data.userId)
+        .listHouseholdsByUser(viewer.id)
         .some((household) => {
           if (household.ownerUserId === targetUserId) {
             return true;
@@ -54,7 +62,7 @@ export async function POST(request: Request) {
 
     const report = buildAnnualReport(targetUserId, parsed.data.year);
     const job = enqueueJob("annual_report_export", {
-      userId: parsed.data.userId,
+      userId: viewer.id,
       targetUserId,
       year: parsed.data.year,
       format: parsed.data.format
