@@ -92,8 +92,9 @@ export default function SettingsPage() {
     setBusy(true);
     setStatus("");
 
-    const monthlyTarget = monthlyIncomeTarget.trim() ? Number(monthlyIncomeTarget) : null;
-    if (monthlyIncomeTarget.trim() && (!Number.isFinite(monthlyTarget) || monthlyTarget < 0)) {
+    const hasMonthlyTarget = monthlyIncomeTarget.trim().length > 0;
+    const monthlyTarget = hasMonthlyTarget ? Number(monthlyIncomeTarget) : null;
+    if (hasMonthlyTarget && (!Number.isFinite(monthlyTarget) || (monthlyTarget ?? 0) < 0)) {
       setBusy(false);
       setStatus("Monthly income target must be a non-negative number.");
       return;
