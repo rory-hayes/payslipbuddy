@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/catalyst/badge";
@@ -103,7 +103,7 @@ function asAmount(value: string): number | null {
   return parsed;
 }
 
-export default function OnboardingPage() {
+function OnboardingPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading } = useRequireAuth();
@@ -810,5 +810,13 @@ export default function OnboardingPage() {
         </aside>
       </section>
     </PageShell>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={<Text>Loading onboarding...</Text>}>
+      <OnboardingPageContent />
+    </Suspense>
   );
 }
