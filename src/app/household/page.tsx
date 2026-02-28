@@ -1,10 +1,13 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import Link from "next/link";
-import { PageShell } from "@/components/page-shell";
+import { Badge } from "@/components/catalyst/badge";
 import { Button } from "@/components/catalyst/button";
+import { Subheading } from "@/components/catalyst/heading";
 import { Input } from "@/components/catalyst/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/catalyst/table";
+import { Text } from "@/components/catalyst/text";
+import { PageShell } from "@/components/page-shell";
 import { apiFetch } from "@/lib/client-api";
 import { DEMO_HOUSEHOLD_ID, DEMO_USER_ID } from "@/lib/constants";
 
@@ -43,7 +46,7 @@ export default function HouseholdPage() {
   }
 
   useEffect(() => {
-    refresh();
+    void refresh();
   }, []);
 
   async function invite(event: FormEvent<HTMLFormElement>) {
@@ -72,57 +75,70 @@ export default function HouseholdPage() {
   return (
     <PageShell
       title="Household Sharing"
-      subtitle="Owner + Member model. Members can view shared summaries and export annual reports; owner manages billing and invites."
+      subtitle="Owner/member model with shared payslip summaries and annual reports. Billing remains owner-managed."
       actions={
-        <Link href="/billing" className="rounded-lg border border-zinc-900 bg-zinc-900 px-4 py-2 text-sm font-semibold text-white">
+        <Button href="/billing" outline>
           Manage Billing
-        </Link>
+        </Button>
       }
     >
-      {status ? <p className="mb-4 rounded-xl bg-slate-100 p-3 text-sm text-slate-700">{status}</p> : null}
+      {status ? (
+        <div className="rounded-xl border border-zinc-950/10 bg-zinc-50 p-3 text-sm text-zinc-700 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-200">
+          {status}
+        </div>
+      ) : null}
 
-      <section className="card p-5">
-        <h2 className="text-lg font-semibold text-ink">Workspace</h2>
-        <p className="mt-2 text-sm text-slate-700">
-          Plan: {data?.usage?.plan ?? "FREE"}. Sharing status: {data?.sharing.allowed ? "enabled" : "locked"}.
-        </p>
+      <section className="rounded-2xl border border-zinc-950/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+        <div className="flex flex-wrap items-center gap-3">
+          <Subheading>Workspace</Subheading>
+          <Badge color={data?.sharing.allowed ? "emerald" : "amber"}>{data?.sharing.allowed ? "Enabled" : "Locked"}</Badge>
+        </div>
+        <Text className="mt-2">Plan: {data?.usage?.plan ?? "FREE"}</Text>
         {!data?.sharing.allowed ? (
-          <p className="mt-2 text-sm text-amber-700">
+          <Text className="mt-2 text-amber-700 dark:text-amber-300">
             {data?.sharing.reason ?? "Upgrade to Pro to invite members and share annual reports."}
-          </p>
+          </Text>
         ) : null}
       </section>
 
-      <section className="mt-6 grid gap-4 md:grid-cols-[1fr_1fr]">
-        <article className="card p-5">
-          <h2 className="text-lg font-semibold text-ink">Members</h2>
-          <ul className="mt-3 space-y-2 text-sm text-slate-700">
-              {(data?.members ?? []).map((member) => (
-              <li key={`${member.userId}:${member.createdAt}`} className="rounded-xl border border-slate-200 px-3 py-2">
-                {member.userId} · {member.role} · {member.status}
-              </li>
-            ))}
-          </ul>
+      <section className="grid gap-4 lg:grid-cols-2">
+        <article className="rounded-2xl border border-zinc-950/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+          <Subheading>Members</Subheading>
+          <Table className="mt-4 [--gutter:--spacing(4)]">
+            <TableHead>
+              <TableRow>
+                <TableHeader>User</TableHeader>
+                <TableHeader>Role</TableHeader>
+                <TableHeader>Status</TableHeader>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {(data?.members ?? []).length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={3}>No members yet.</TableCell>
+                </TableRow>
+              ) : (
+                (data?.members ?? []).map((member) => (
+                  <TableRow key={`${member.userId}:${member.createdAt}`}>
+                    <TableCell>{member.userId}</TableCell>
+                    <TableCell>{member.role}</TableCell>
+                    <TableCell>{member.status}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </article>
 
-        <article className="card p-5">
-          <h2 className="text-lg font-semibold text-ink">Invite Member</h2>
-          <form onSubmit={invite} className="mt-4 space-y-3">
-            <Input
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="member@email.com"
-              type="email"
-            />
-            <Button
-              disabled={!data?.sharing.allowed}
-              className="disabled:cursor-not-allowed disabled:opacity-60"
-              type="submit"
-            >
+        <article className="rounded-2xl border border-zinc-950/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+          <Subheading>Invite Member</Subheading>
+          <form onSubmit={invite} className="mt-4 space-y-4">
+            <Input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="member@email.com" type="email" />
+            <Button disabled={!data?.sharing.allowed} type="submit">
               Send Invite
             </Button>
             {!data?.sharing.allowed ? (
-              <p className="text-xs text-amber-700">Upgrade to Pro to invite household members.</p>
+              <Text className="text-amber-700 dark:text-amber-300">Upgrade to Pro to invite household members.</Text>
             ) : null}
           </form>
         </article>

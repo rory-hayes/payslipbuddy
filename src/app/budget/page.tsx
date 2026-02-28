@@ -1,24 +1,27 @@
-import Link from "next/link";
+import { Button } from "@/components/catalyst/button";
+import { Subheading } from "@/components/catalyst/heading";
+import { Text } from "@/components/catalyst/text";
 import { PageShell } from "@/components/page-shell";
 
 export default function BudgetPage() {
   return (
     <PageShell
       title="Budget Board (V1.5)"
-      subtitle="Budget board, recurring planning, and bank CSV mapping are deferred to V1.5 while V1 focuses on Payslip OS, reporting, and household sharing."
+      subtitle="Budget planning, recurring goals, and bank CSV mapping are intentionally deferred to V1.5 so V1 can focus on Payslip OS quality."
       actions={
-        <Link href="/dashboard" className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
+        <Button href="/dashboard" outline>
           Back to Dashboard
-        </Link>
+        </Button>
       }
     >
-      <section className="card max-w-2xl p-6">
-        <h2 className="text-lg font-semibold text-ink">Deferred Features</h2>
-        <ul className="mt-3 space-y-2 text-sm text-slate-700">
-          <li>- Goals and recurring expense board</li>
-          <li>- Planned vs actual monthly budgeting</li>
-          <li>- Bank CSV import and column mapping</li>
+      <section className="max-w-2xl rounded-2xl border border-zinc-950/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+        <Subheading>Deferred Features</Subheading>
+        <ul className="mt-4 space-y-3">
+          <li className="text-sm/6 text-zinc-700 dark:text-zinc-300">Goals and recurring expense board</li>
+          <li className="text-sm/6 text-zinc-700 dark:text-zinc-300">Planned vs actual monthly budgeting</li>
+          <li className="text-sm/6 text-zinc-700 dark:text-zinc-300">Bank CSV import and column mapping</li>
         </ul>
+        <Text className="mt-4">This route remains visible to show roadmap clarity without diluting the V1 delivery focus.</Text>
       </section>
     </PageShell>
   );

@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Badge } from "@/components/catalyst/badge";
+import { Subheading } from "@/components/catalyst/heading";
+import { Text } from "@/components/catalyst/text";
 import { PageShell } from "@/components/page-shell";
-import { DEMO_USER_ID } from "@/lib/constants";
 import { apiFetch } from "@/lib/client-api";
+import { DEMO_USER_ID } from "@/lib/constants";
 import type { MomDiff } from "@/lib/types/domain";
 
 interface DashboardOverview {
@@ -50,7 +53,7 @@ function asCurrency(value: number, code: "GBP" | "EUR") {
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardOverview | null>(null);
-  const [error, setError] = useState<string>("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
     apiFetch<DashboardOverview>(`/api/dashboard/overview?userId=${DEMO_USER_ID}`).then((res) => {
@@ -58,7 +61,6 @@ export default function DashboardPage() {
         setError(res.error?.message ?? "Could not load dashboard.");
         return;
       }
-
       setData(res.data);
     });
   }, []);
@@ -72,26 +74,30 @@ export default function DashboardPage() {
   return (
     <PageShell
       title="Dashboard"
-      subtitle="Track net pay, deductions, month-over-month changes, and employer timeline from one view."
+      subtitle="Track net pay, deductions, month-over-month changes, and employer timeline from one workspace."
     >
-      {error ? <p className="mb-4 rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p> : null}
+      {error ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+          {error}
+        </div>
+      ) : null}
 
       <section className="grid gap-4 md:grid-cols-3">
-        <article className="card p-4">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Current Net (Confirmed)</p>
-          <p className="metric-value mt-2 text-2xl text-ink">
+        <article className="rounded-2xl border border-zinc-950/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+          <Text>Current Net (Confirmed)</Text>
+          <p className="mt-2 text-3xl/9 font-semibold text-zinc-950 dark:text-white">
             {asCurrency(data?.latestBreakdown?.net ?? 0, currency)}
           </p>
         </article>
-        <article className="card p-4">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Current Tax</p>
-          <p className="metric-value mt-2 text-2xl text-ink">
+        <article className="rounded-2xl border border-zinc-950/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+          <Text>Current Tax</Text>
+          <p className="mt-2 text-3xl/9 font-semibold text-zinc-950 dark:text-white">
             {asCurrency(data?.latestBreakdown?.tax ?? 0, currency)}
           </p>
         </article>
-        <article className="card p-4">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Usage Meter</p>
-          <p className="metric-value mt-2 text-xl text-ink">
+        <article className="rounded-2xl border border-zinc-950/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+          <Text>Usage Meter</Text>
+          <p className="mt-2 text-2xl/8 font-semibold text-zinc-950 dark:text-white">
             {data?.usage
               ? data.usage.unlimitedPayslips
                 ? `Unlimited (${data.usage.plan})`
@@ -101,39 +107,41 @@ export default function DashboardPage() {
         </article>
       </section>
 
-      <section className="mt-6 grid gap-4 md:grid-cols-2">
-        <article className="card p-5">
-          <h2 className="text-lg font-semibold text-ink">MoM Change Highlights</h2>
+      <section className="grid gap-4 md:grid-cols-2">
+        <article className="rounded-2xl border border-zinc-950/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+          <Subheading>MoM Change Highlights</Subheading>
           {(data?.momDiff ?? []).length === 0 ? (
-            <p className="mt-3 text-sm text-slate-600">Upload two confirmed payslips to generate change insights.</p>
+            <Text className="mt-3">Upload two confirmed payslips to generate change insights.</Text>
           ) : criticalChanges.length === 0 ? (
-            <p className="mt-3 text-sm text-slate-600">No major MoM changes detected in the latest confirmed period.</p>
+            <Text className="mt-3">No major MoM changes detected in the latest confirmed period.</Text>
           ) : (
-            <ul className="mt-3 space-y-2 text-sm text-slate-700">
+            <ul className="mt-4 space-y-3">
               {criticalChanges.map((item) => (
-                <li key={item.metric} className="rounded-lg bg-slate-50 px-3 py-2">
-                  <strong className="capitalize">{item.metric}</strong>: {item.insight}
+                <li key={item.metric} className="rounded-xl border border-zinc-950/10 p-3 dark:border-white/10">
+                  <p className="text-sm/6 font-medium text-zinc-950 capitalize dark:text-white">{item.metric}</p>
+                  <Text className="mt-1">{item.insight}</Text>
                 </li>
               ))}
             </ul>
           )}
         </article>
 
-        <article className="card p-5">
-          <h2 className="text-lg font-semibold text-ink">Line Item Changes</h2>
+        <article className="rounded-2xl border border-zinc-950/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+          <Subheading>Line Item Changes</Subheading>
           {(data?.lineItemChanges ?? []).length === 0 ? (
-            <p className="mt-3 text-sm text-slate-600">No line-item deltas yet.</p>
+            <Text className="mt-3">No line-item deltas yet.</Text>
           ) : (
-            <ul className="mt-3 space-y-3 text-sm text-slate-700">
+            <ul className="mt-4 space-y-3">
               {data?.lineItemChanges.slice(0, 6).map((item) => (
-                <li key={`${item.type}-${item.label}`}>
-                  <div className="flex items-center justify-between">
-                    <span>
-                      {item.label} {item.isNew ? "(new)" : ""}
-                    </span>
-                    <span>{item.delta.toFixed(2)}</span>
+                <li key={`${item.type}-${item.label}`} className="rounded-xl border border-zinc-950/10 p-3 dark:border-white/10">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm/6 font-medium text-zinc-950 dark:text-white">{item.label}</p>
+                    <p className="text-sm/6 font-semibold text-zinc-950 dark:text-white">{item.delta.toFixed(2)}</p>
                   </div>
-                  {item.isIrregular ? <p className="mt-1 text-xs text-amber-700">Irregular change detected</p> : null}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {item.isNew ? <Badge color="blue">New item</Badge> : null}
+                    {item.isIrregular ? <Badge color="amber">Irregular</Badge> : null}
+                  </div>
                 </li>
               ))}
             </ul>
@@ -141,13 +149,17 @@ export default function DashboardPage() {
         </article>
       </section>
 
-      <section className="card mt-6 p-5">
-        <h2 className="text-lg font-semibold text-ink">Employer Timeline</h2>
+      <section className="rounded-2xl border border-zinc-950/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+        <Subheading>Employer Timeline</Subheading>
         {(data?.employerTimeline ?? []).length === 0 ? (
-          <p className="mt-3 text-sm text-slate-600">No confirmed payslips yet.</p>
+          <Text className="mt-3">No confirmed payslips yet.</Text>
         ) : (
-          <ul className="mt-3 space-y-1 text-sm text-slate-700">
-            {data?.employerTimeline.map((entry) => <li key={entry}>{entry}</li>)}
+          <ul className="mt-4 space-y-2">
+            {data?.employerTimeline.map((entry) => (
+              <li key={entry} className="text-sm/6 text-zinc-700 dark:text-zinc-300">
+                {entry}
+              </li>
+            ))}
           </ul>
         )}
       </section>

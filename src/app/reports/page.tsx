@@ -1,10 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { PageShell } from "@/components/page-shell";
+import { Badge } from "@/components/catalyst/badge";
 import { Button } from "@/components/catalyst/button";
 import { Select } from "@/components/catalyst/select";
+import { Subheading } from "@/components/catalyst/heading";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/catalyst/table";
+import { Text } from "@/components/catalyst/text";
+import { PageShell } from "@/components/page-shell";
 import { apiFetch } from "@/lib/client-api";
 import { DEMO_USER_ID } from "@/lib/constants";
 
@@ -155,164 +158,146 @@ export default function ReportsPage() {
   return (
     <PageShell
       title="Annual Reports"
-      subtitle="Premium annual dashboard and exports. Free plan can upload and review one payslip, paid plans unlock annual reporting outputs."
+      subtitle="Build your Annual Income & Deductions artifact with month-by-month payroll visibility and export-ready outputs."
       actions={
-        <div className="flex items-center gap-2">
-          <Select
-            value={year}
-            onChange={(event) => setYear(Number(event.target.value))}
-            className="min-w-24"
-          >
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={String(year)} onChange={(event) => setYear(Number(event.target.value))} className="min-w-24">
             {[currentYear - 1, currentYear].map((item) => (
               <option key={item} value={item}>
                 {item}
               </option>
             ))}
           </Select>
-          <Button
-            onClick={() => exportFile("pdf")}
-            disabled={!canExportPdf}
-            tone="primary"
-            type="button"
-            className="disabled:cursor-not-allowed disabled:opacity-60"
-          >
+          <Button onClick={() => exportFile("pdf")} disabled={!canExportPdf} type="button">
             Export PDF
           </Button>
-          <Button
-            onClick={() => exportFile("xlsx")}
-            disabled={!canExportXlsx}
-            tone="secondary"
-            type="button"
-            className="disabled:cursor-not-allowed disabled:opacity-60"
-          >
+          <Button onClick={() => exportFile("xlsx")} disabled={!canExportXlsx} outline type="button">
             Export XLSX
           </Button>
         </div>
       }
     >
-      <p className="mb-4 text-xs text-slate-500">
-        Plan: {plan}. PDF export requires paid plan; XLSX export requires Pro.
-      </p>
+      <div className="flex items-center gap-2">
+        <Badge color={plan === "FREE" ? "zinc" : plan === "PLUS" ? "blue" : "emerald"}>Plan: {plan}</Badge>
+        {!canExportPdf ? <Badge color="amber">Upgrade for PDF export</Badge> : null}
+        {!canExportXlsx ? <Badge color="amber">Pro required for XLSX</Badge> : null}
+      </div>
+
       {error ? (
-        <div className="mb-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
-          <p>{error}</p>
-          <Link href="/billing" className="mt-2 inline-block font-semibold underline">
-            Upgrade to paid plan
-          </Link>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+          {error}
         </div>
       ) : null}
 
-      {busy ? <p className="text-sm text-slate-600">Loading annual report...</p> : null}
+      {busy ? <Text>Loading annual report...</Text> : null}
 
       {report ? (
         <>
           <section className="grid gap-4 md:grid-cols-3">
-            <article className="card p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Total Gross</p>
-              <p className="metric-value mt-2 text-2xl text-ink">{formatMoney(report.totals.gross, currency)}</p>
+            <article className="rounded-2xl border border-zinc-950/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+              <Text>Total Gross</Text>
+              <p className="mt-2 text-3xl/9 font-semibold text-zinc-950 dark:text-white">{formatMoney(report.totals.gross, currency)}</p>
             </article>
-            <article className="card p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Total Net</p>
-              <p className="metric-value mt-2 text-2xl text-ink">{formatMoney(report.totals.net, currency)}</p>
+            <article className="rounded-2xl border border-zinc-950/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+              <Text>Total Net</Text>
+              <p className="mt-2 text-3xl/9 font-semibold text-zinc-950 dark:text-white">{formatMoney(report.totals.net, currency)}</p>
             </article>
-            <article className="card p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Total Tax</p>
-              <p className="metric-value mt-2 text-2xl text-ink">{formatMoney(report.totals.tax, currency)}</p>
+            <article className="rounded-2xl border border-zinc-950/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+              <Text>Total Tax</Text>
+              <p className="mt-2 text-3xl/9 font-semibold text-zinc-950 dark:text-white">{formatMoney(report.totals.tax, currency)}</p>
             </article>
           </section>
 
-          <section className="mt-6 grid gap-4 md:grid-cols-2">
-            <article className="card p-5">
-              <h2 className="text-lg font-semibold text-ink">Employer Timeline</h2>
+          <section className="grid gap-4 md:grid-cols-2">
+            <article className="rounded-2xl border border-zinc-950/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+              <Subheading>Employer Timeline</Subheading>
               {report.employerTimeline.length === 0 ? (
-                <p className="mt-3 text-sm text-slate-600">No confirmed payslips found for this year.</p>
+                <Text className="mt-3">No confirmed payslips found for this year.</Text>
               ) : (
-                <ul className="mt-3 space-y-2 text-sm text-slate-700">
+                <ul className="mt-4 space-y-2">
                   {report.employerTimeline.map((row) => (
-                    <li key={row.employerId}>
-                      <strong>{row.employerName}</strong>: {row.months.join(", ")}
+                    <li key={row.employerId} className="text-sm/6 text-zinc-700 dark:text-zinc-300">
+                      <span className="font-medium text-zinc-950 dark:text-white">{row.employerName}</span>: {row.months.join(", ")}
                     </li>
                   ))}
                 </ul>
               )}
             </article>
 
-            <article className="card p-5">
-              <h2 className="text-lg font-semibold text-ink">Months With Major Swings</h2>
+            <article className="rounded-2xl border border-zinc-950/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+              <Subheading>Months With Major Swings</Subheading>
               {majorSwingMonths.length === 0 ? (
-                <p className="mt-3 text-sm text-slate-600">No major swings detected.</p>
+                <Text className="mt-3">No major swings detected.</Text>
               ) : (
-                <ul className="mt-3 space-y-1 text-sm text-slate-700">
+                <ul className="mt-4 space-y-2">
                   {majorSwingMonths.map((row) => (
-                    <li key={row.month}>{row.month} ({formatMoney(row.net, currency)})</li>
+                    <li key={row.month} className="text-sm/6 text-zinc-700 dark:text-zinc-300">
+                      {row.month} ({formatMoney(row.net, currency)})
+                    </li>
                   ))}
                 </ul>
               )}
             </article>
           </section>
 
-          <section className="card mt-6 p-5">
-            <h2 className="text-lg font-semibold text-ink">Monthly Series</h2>
-            <div className="table-shell mt-3 overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
-                <thead>
-                  <tr className="text-slate-500">
-                    <th className="py-2">Month</th>
-                    <th className="py-2">Gross</th>
-                    <th className="py-2">Net</th>
-                    <th className="py-2">Tax</th>
-                    <th className="py-2">Pension</th>
-                    <th className="py-2">NI/PRSI</th>
-                    <th className="py-2">USC</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.monthlySeries.length === 0 ? (
-                    <tr className="border-b border-slate-100">
-                      <td className="py-3 text-slate-500" colSpan={7}>
-                        No monthly data available for this year.
-                      </td>
-                    </tr>
-                  ) : (
-                    report.monthlySeries.map((row) => (
-                      <tr key={row.month} className="border-b border-slate-100">
-                        <td className="py-2">{row.month}</td>
-                        <td className="py-2">{formatMoney(row.gross, currency)}</td>
-                        <td className="py-2">{formatMoney(row.net, currency)}</td>
-                        <td className="py-2">{formatMoney(row.tax, currency)}</td>
-                        <td className="py-2">{formatMoney(row.pension, currency)}</td>
-                        <td className="py-2">{formatMoney(row.niOrPrsi, currency)}</td>
-                        <td className="py-2">{formatMoney(row.usc, currency)}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+          <section className="rounded-2xl border border-zinc-950/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+            <Subheading>Monthly Series</Subheading>
+            <Table className="mt-4 [--gutter:--spacing(4)]">
+              <TableHead>
+                <TableRow>
+                  <TableHeader>Month</TableHeader>
+                  <TableHeader>Gross</TableHeader>
+                  <TableHeader>Net</TableHeader>
+                  <TableHeader>Tax</TableHeader>
+                  <TableHeader>Pension</TableHeader>
+                  <TableHeader>NI/PRSI</TableHeader>
+                  <TableHeader>USC</TableHeader>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {report.monthlySeries.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7}>No monthly data available for this year.</TableCell>
+                  </TableRow>
+                ) : (
+                  report.monthlySeries.map((row) => (
+                    <TableRow key={row.month}>
+                      <TableCell>{row.month}</TableCell>
+                      <TableCell>{formatMoney(row.gross, currency)}</TableCell>
+                      <TableCell>{formatMoney(row.net, currency)}</TableCell>
+                      <TableCell>{formatMoney(row.tax, currency)}</TableCell>
+                      <TableCell>{formatMoney(row.pension, currency)}</TableCell>
+                      <TableCell>{formatMoney(row.niOrPrsi, currency)}</TableCell>
+                      <TableCell>{formatMoney(row.usc, currency)}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </section>
 
-          <section className="card mt-6 p-5">
-            <h2 className="text-lg font-semibold text-ink">Deductions and Line Items</h2>
+          <section className="rounded-2xl border border-zinc-950/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+            <Subheading>Deductions and Line Items</Subheading>
             {report.lineItemTotals.length === 0 ? (
-              <p className="mt-3 text-sm text-slate-600">No line items available for this year.</p>
+              <Text className="mt-3">No line items available for this year.</Text>
             ) : (
-              <ul className="mt-3 space-y-1 text-sm text-slate-700">
+              <ul className="mt-4 space-y-2">
                 {report.lineItemTotals.map((item) => (
-                  <li key={`${item.type}-${item.label}`}>
-                    {item.type} {item.label}: {formatMoney(item.total, currency)}
+                  <li key={`${item.type}-${item.label}`} className="text-sm/6 text-zinc-700 dark:text-zinc-300">
+                    <span className="font-medium text-zinc-950 dark:text-white">{item.type} {item.label}</span>: {formatMoney(item.total, currency)}
                     {item.irregular ? " (irregular)" : ""}
                     {item.isNewThisYear ? " (new)" : ""}
                   </li>
                 ))}
               </ul>
             )}
-            <p className="mt-4 text-xs text-slate-500">
+            <Text className="mt-4">
               Data quality: {report.dataQuality.averageConfidence}% average confidence, {report.dataQuality.userEditedFieldCount} user overrides.
-            </p>
+            </Text>
             {report.dataQuality.missingMonths.length > 0 ? (
-              <p className="mt-2 text-xs text-amber-700">
+              <Text className="mt-2 text-amber-700 dark:text-amber-300">
                 Missing months warning: {report.dataQuality.missingMonths.join(", ")}
-              </p>
+              </Text>
             ) : null}
           </section>
         </>

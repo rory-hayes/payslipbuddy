@@ -1,12 +1,15 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { PageShell } from "@/components/page-shell";
+import { Badge } from "@/components/catalyst/badge";
 import { Button } from "@/components/catalyst/button";
+import { Subheading } from "@/components/catalyst/heading";
 import { Input } from "@/components/catalyst/input";
 import { Select } from "@/components/catalyst/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/catalyst/table";
 import { Text } from "@/components/catalyst/text";
 import { Textarea } from "@/components/catalyst/textarea";
+import { PageShell } from "@/components/page-shell";
 import { apiFetch } from "@/lib/client-api";
 import { DEMO_USER_ID } from "@/lib/constants";
 import type { ParsedPayslip } from "@/lib/types/domain";
@@ -303,39 +306,38 @@ export default function PayslipsPage() {
   return (
     <PageShell
       title="Payslips"
-      subtitle="Upload a payslip, review AI extraction with field confidence, and confirm only when required fields are valid."
+      subtitle="Upload a payslip, review AI extraction with field-level confidence, then confirm only when required fields validate."
     >
-      <p className="mb-4 text-xs text-slate-500">Region profile: {region}. Schema defaults align after onboarding save.</p>
-      <section className="grid gap-4 md:grid-cols-[1fr_1fr]">
-        <article className="card p-5">
-          <h2 className="text-lg font-semibold text-ink">Upload and Extract</h2>
-          <p className="mt-1 text-xs text-slate-500">Supported files: PDF, PNG, JPG, WEBP.</p>
-          <form onSubmit={uploadAndExtract} className="mt-4 space-y-3">
-            <label className="block text-sm font-medium text-slate-700">
-              Storage Path
-              <Input
-                value={storagePath}
-                onChange={(event) => setStoragePath(event.target.value)}
-                className="mt-1"
-              />
+      <div className="flex items-center gap-2">
+        <Badge color="blue">Region: {region}</Badge>
+        <Badge color="zinc">Schema: {draft.schemaVersion}</Badge>
+      </div>
+
+      {message ? (
+        <div className="rounded-xl border border-zinc-950/10 bg-zinc-50 p-3 text-sm text-zinc-700 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-200">
+          {message}
+        </div>
+      ) : null}
+
+      <section className="grid gap-4 lg:grid-cols-2">
+        <article className="rounded-2xl border border-zinc-950/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+          <Subheading>Upload and Extract</Subheading>
+          <Text className="mt-2">Supported files: PDF, PNG, JPG, WEBP.</Text>
+
+          <form onSubmit={uploadAndExtract} className="mt-4 space-y-4">
+            <label className="space-y-2">
+              <Text>Storage Path</Text>
+              <Input value={storagePath} onChange={(event) => setStoragePath(event.target.value)} />
             </label>
 
-            <label className="block text-sm font-medium text-slate-700">
-              Mime Type
-              <Input
-                value={mimeType}
-                onChange={(event) => setMimeType(event.target.value)}
-                className="mt-1"
-              />
+            <label className="space-y-2">
+              <Text>Mime Type</Text>
+              <Input value={mimeType} onChange={(event) => setMimeType(event.target.value)} />
             </label>
 
-            <label className="block text-sm font-medium text-slate-700">
-              Employer
-              <Select
-                value={employerId}
-                onChange={(event) => setEmployerId(event.target.value)}
-                className="mt-1"
-              >
+            <label className="space-y-2">
+              <Text>Employer</Text>
+              <Select value={employerId} onChange={(event) => setEmployerId(event.target.value)}>
                 {employers.map((employer) => (
                   <option key={employer.id} value={employer.id}>
                     {employer.name}
@@ -344,9 +346,7 @@ export default function PayslipsPage() {
               </Select>
             </label>
 
-            <Button type="submit">
-              Upload + Extract
-            </Button>
+            <Button type="submit">Upload + Extract</Button>
           </form>
 
           <form onSubmit={createEmployer} className="mt-4 flex gap-2">
@@ -356,128 +356,69 @@ export default function PayslipsPage() {
               className="w-full"
               placeholder="Create another employer"
             />
-            <Button type="submit" tone="secondary">
+            <Button type="submit" outline>
               Add
             </Button>
           </form>
-
-          {message ? <Text className="mt-3">{message}</Text> : null}
         </article>
 
-        <article className="card p-5">
-          <h2 className="text-lg font-semibold text-ink">Review Before Save</h2>
-          <p className="mt-1 text-xs text-slate-500">Schema: {draft.schemaVersion}</p>
-          <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-            <label className="col-span-2">
-              Employer Name
-              <Input
-                value={draft.employerName}
-                onChange={(event) => updateField("employerName", event.target.value)}
-                className="mt-1"
-              />
+        <article className="rounded-2xl border border-zinc-950/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+          <Subheading>Review Before Save</Subheading>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <label className="col-span-2 space-y-2">
+              <Text>Employer Name</Text>
+              <Input value={draft.employerName} onChange={(event) => updateField("employerName", event.target.value)} />
             </label>
-            <label>
-              Month
-              <Input
-                value={draft.periodMonth}
-                onChange={(event) => updateField("periodMonth", Number(event.target.value))}
-                type="number"
-                className="mt-1"
-              />
+            <label className="space-y-2">
+              <Text>Month</Text>
+              <Input value={draft.periodMonth} onChange={(event) => updateField("periodMonth", Number(event.target.value))} type="number" />
             </label>
-            <label>
-              Year
-              <Input
-                value={draft.periodYear}
-                onChange={(event) => updateField("periodYear", Number(event.target.value))}
-                type="number"
-                className="mt-1"
-              />
+            <label className="space-y-2">
+              <Text>Year</Text>
+              <Input value={draft.periodYear} onChange={(event) => updateField("periodYear", Number(event.target.value))} type="number" />
             </label>
-            <label>
-              Gross
-              <Input
-                value={draft.gross}
-                onChange={(event) => updateField("gross", Number(event.target.value))}
-                type="number"
-                className="mt-1"
-              />
+            <label className="space-y-2">
+              <Text>Gross</Text>
+              <Input value={draft.gross} onChange={(event) => updateField("gross", Number(event.target.value))} type="number" />
             </label>
-            <label>
-              Net
-              <Input
-                value={draft.net}
-                onChange={(event) => updateField("net", Number(event.target.value))}
-                type="number"
-                className="mt-1"
-              />
+            <label className="space-y-2">
+              <Text>Net</Text>
+              <Input value={draft.net} onChange={(event) => updateField("net", Number(event.target.value))} type="number" />
             </label>
-            <label>
-              Tax
-              <Input
-                value={draft.tax}
-                onChange={(event) => updateField("tax", Number(event.target.value))}
-                type="number"
-                className="mt-1"
-              />
+            <label className="space-y-2">
+              <Text>Tax</Text>
+              <Input value={draft.tax} onChange={(event) => updateField("tax", Number(event.target.value))} type="number" />
             </label>
-            <label>
-              Pension
-              <Input
-                value={draft.pension}
-                onChange={(event) => updateField("pension", Number(event.target.value))}
-                type="number"
-                className="mt-1"
-              />
+            <label className="space-y-2">
+              <Text>Pension</Text>
+              <Input value={draft.pension} onChange={(event) => updateField("pension", Number(event.target.value))} type="number" />
             </label>
-            <label>
-              NI / PRSI
-              <Input
-                value={draft.niOrPrsi}
-                onChange={(event) => updateField("niOrPrsi", Number(event.target.value))}
-                type="number"
-                className="mt-1"
-              />
+            <label className="space-y-2">
+              <Text>NI / PRSI</Text>
+              <Input value={draft.niOrPrsi} onChange={(event) => updateField("niOrPrsi", Number(event.target.value))} type="number" />
             </label>
-            <label>
-              USC
-              <Input
-                value={draft.usc ?? 0}
-                onChange={(event) => updateField("usc", Number(event.target.value))}
-                type="number"
-                className="mt-1"
-              />
+            <label className="space-y-2">
+              <Text>USC</Text>
+              <Input value={draft.usc ?? 0} onChange={(event) => updateField("usc", Number(event.target.value))} type="number" />
             </label>
           </div>
 
-          <label className="mt-3 block text-sm">
-            Confidence (0-1)
-            <Input
-              value={confidence}
-              onChange={(event) => setConfidence(Number(event.target.value))}
-              type="number"
-              step="0.01"
-              min={0}
-              max={1}
-              className="mt-1"
-            />
+          <label className="mt-4 block space-y-2">
+            <Text>Confidence (0-1)</Text>
+            <Input value={confidence} onChange={(event) => setConfidence(Number(event.target.value))} type="number" step="0.01" min={0} max={1} />
           </label>
 
-          <label className="mt-3 block text-sm">
-            Notes
-            <Textarea
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-              className="mt-1 h-20"
-            />
+          <label className="mt-4 block space-y-2">
+            <Text>Notes</Text>
+            <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} className="h-24" />
           </label>
 
           {Object.keys(draft.fieldConfidence).length > 0 ? (
-            <div className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-700">
-              <p className="font-semibold text-slate-800">Field Confidence</p>
-              <ul className="mt-1 space-y-1">
+            <div className="mt-4 rounded-xl border border-zinc-950/10 p-3 dark:border-white/10">
+              <Text className="font-medium text-zinc-950 dark:text-white">Field Confidence</Text>
+              <ul className="mt-2 space-y-1">
                 {Object.entries(draft.fieldConfidence).map(([field, value]) => (
-                  <li key={field}>
+                  <li key={field} className="text-sm/6 text-zinc-700 dark:text-zinc-300">
                     {field}: {(value * 100).toFixed(0)}%
                   </li>
                 ))}
@@ -486,9 +427,9 @@ export default function PayslipsPage() {
           ) : null}
 
           {requiredErrors.length > 0 ? (
-            <div className="mt-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
-              <p className="font-semibold">Resolve validation errors before confirm</p>
-              <ul className="mt-1 space-y-1">
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+              <p className="font-medium">Resolve validation errors before confirm</p>
+              <ul className="mt-2 space-y-1">
                 {requiredErrors.map((error) => (
                   <li key={error}>- {error}</li>
                 ))}
@@ -496,60 +437,58 @@ export default function PayslipsPage() {
             </div>
           ) : null}
 
-          <Button
-            onClick={confirmDraft}
-            disabled={!activePayslipId || requiredErrors.length > 0}
-            className="mt-4 disabled:opacity-50"
-            type="button"
-          >
-            Confirm Payslip
-          </Button>
+          <div className="mt-5">
+            <Button onClick={confirmDraft} disabled={!activePayslipId || requiredErrors.length > 0} type="button">
+              Confirm Payslip
+            </Button>
+          </div>
         </article>
       </section>
 
-      <section className="card mt-6 p-5">
-        <h2 className="text-lg font-semibold text-ink">History</h2>
-        <div className="table-shell mt-3 overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 text-slate-500">
-                <th className="py-2">Period</th>
-                <th className="py-2">Schema</th>
-                <th className="py-2">Status</th>
-                <th className="py-2">Gross</th>
-                <th className="py-2">Net</th>
-                <th className="py-2">Tax</th>
-                <th className="py-2">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id} className="border-b border-slate-100">
-                  <td className="py-2">
+      <section className="rounded-2xl border border-zinc-950/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+        <Subheading>History</Subheading>
+        <Table className="mt-4 [--gutter:--spacing(4)]">
+          <TableHead>
+            <TableRow>
+              <TableHeader>Period</TableHeader>
+              <TableHeader>Schema</TableHeader>
+              <TableHeader>Status</TableHeader>
+              <TableHeader>Gross</TableHeader>
+              <TableHeader>Net</TableHeader>
+              <TableHeader>Tax</TableHeader>
+              <TableHeader>Action</TableHeader>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7}>No payslips uploaded yet.</TableCell>
+              </TableRow>
+            ) : (
+              rows.map((row) => (
+                <TableRow key={row.id}>
+                  <TableCell>
                     {row.periodMonth}/{row.periodYear}
-                  </td>
-                  <td className="py-2">{row.schemaVersion}</td>
-                  <td className="py-2">{row.status}</td>
-                  <td className="py-2">{row.breakdown?.gross ?? "-"}</td>
-                  <td className="py-2">{row.breakdown?.net ?? "-"}</td>
-                  <td className="py-2">{row.breakdown?.tax ?? "-"}</td>
-                  <td className="py-2">
+                  </TableCell>
+                  <TableCell>{row.schemaVersion}</TableCell>
+                  <TableCell>{row.status}</TableCell>
+                  <TableCell>{row.breakdown?.gross ?? "-"}</TableCell>
+                  <TableCell>{row.breakdown?.net ?? "-"}</TableCell>
+                  <TableCell>{row.breakdown?.tax ?? "-"}</TableCell>
+                  <TableCell>
                     {row.status === "EXTRACTED" ? (
-                      <button
-                        onClick={() => loadExtractedDraft(row.id)}
-                        className="rounded-lg border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700"
-                      >
+                      <Button plain onClick={() => loadExtractedDraft(row.id)} type="button">
                         {loadingDraftId === row.id ? "Loading..." : "Resume Review"}
-                      </button>
+                      </Button>
                     ) : (
-                      <span className="text-xs text-slate-400">-</span>
+                      <span className="text-sm/6 text-zinc-400">-</span>
                     )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
       </section>
     </PageShell>
   );

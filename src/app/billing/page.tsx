@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { PageShell } from "@/components/page-shell";
+import { Badge } from "@/components/catalyst/badge";
 import { Button } from "@/components/catalyst/button";
+import { Subheading } from "@/components/catalyst/heading";
 import { Text } from "@/components/catalyst/text";
+import { PageShell } from "@/components/page-shell";
 import { apiFetch } from "@/lib/client-api";
 import { DEMO_USER_ID } from "@/lib/constants";
 
@@ -35,7 +37,7 @@ export default function BillingPage() {
   }
 
   useEffect(() => {
-    refresh();
+    void refresh();
   }, []);
 
   async function startCheckout(planTier: "PLUS" | "PRO", billingCycle: "monthly" | "annual") {
@@ -101,22 +103,28 @@ export default function BillingPage() {
   return (
     <PageShell
       title="Billing & Entitlements"
-      subtitle="Free plan allows one payslip total. Plus unlocks annual dashboard/PDF; Pro adds XLSX export and household sharing."
+      subtitle="Free plan allows one payslip total. Plus unlocks annual dashboard/PDF. Pro adds XLSX export and household sharing."
     >
-      {status ? <p className="mb-4 rounded-xl bg-slate-100 p-3 text-sm text-slate-700">{status}</p> : null}
+      {status ? (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-200">
+          {status}
+        </div>
+      ) : null}
 
       <section className="grid gap-4 md:grid-cols-3">
-        <article className="card p-4">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Current Plan</p>
-          <p className="mt-2 text-2xl font-semibold text-ink">{summary?.user.plan ?? "FREE"}</p>
+        <article className="rounded-2xl border border-zinc-950/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+          <Text>Current Plan</Text>
+          <p className="mt-2 text-3xl/9 font-semibold text-zinc-950 dark:text-white">{summary?.user.plan ?? "FREE"}</p>
         </article>
-        <article className="card p-4">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Subscription</p>
-          <p className="mt-2 text-2xl font-semibold text-ink">{summary?.usage?.subscriptionStatus ?? "TRIAL"}</p>
+        <article className="rounded-2xl border border-zinc-950/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+          <Text>Subscription Status</Text>
+          <p className="mt-2 text-3xl/9 font-semibold text-zinc-950 dark:text-white">
+            {summary?.usage?.subscriptionStatus ?? "TRIAL"}
+          </p>
         </article>
-        <article className="card p-4">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Usage</p>
-          <p className="mt-2 text-2xl font-semibold text-ink">
+        <article className="rounded-2xl border border-zinc-950/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+          <Text>Usage</Text>
+          <p className="mt-2 text-3xl/9 font-semibold text-zinc-950 dark:text-white">
             {summary?.usage
               ? summary.usage.unlimitedPayslips
                 ? "Unlimited"
@@ -126,15 +134,21 @@ export default function BillingPage() {
         </article>
       </section>
 
-      <section className="mt-6 grid gap-4 md:grid-cols-2">
-        <article className="card p-5">
-          <h2 className="text-lg font-semibold text-ink">Plus</h2>
-          <p className="mt-2 text-sm text-slate-700">Unlimited payslips, MoM insights, annual dashboard, PDF export.</p>
-          <div className="mt-4 flex gap-2">
+      <section className="grid gap-4 md:grid-cols-2">
+        <article className="rounded-2xl border border-zinc-950/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+          <div className="flex items-center gap-2">
+            <Subheading>Plus</Subheading>
+            <Badge color="blue">Starter Paid</Badge>
+          </div>
+          <ul className="mt-4 space-y-2 text-sm/6 text-zinc-700 dark:text-zinc-300">
+            <li>Unlimited payslips and MoM insights</li>
+            <li>Annual dashboard and PDF export</li>
+            <li>12-month history and reminders</li>
+          </ul>
+          <div className="mt-5 flex flex-wrap gap-2">
             <Button
               disabled={loading || !summary?.user.canManageBilling}
               onClick={() => startCheckout("PLUS", "monthly")}
-              className="disabled:opacity-50"
               type="button"
             >
               Plus Monthly
@@ -142,8 +156,7 @@ export default function BillingPage() {
             <Button
               disabled={loading || !summary?.user.canManageBilling}
               onClick={() => startCheckout("PLUS", "annual")}
-              className="disabled:opacity-50"
-              tone="secondary"
+              outline
               type="button"
             >
               Plus Annual
@@ -151,8 +164,7 @@ export default function BillingPage() {
             <Button
               disabled={!summary?.user.canManageBilling}
               onClick={() => simulateActivation("PLUS", "monthly")}
-              className="disabled:opacity-50"
-              tone="quiet"
+              plain
               type="button"
             >
               Simulate Plus
@@ -160,14 +172,20 @@ export default function BillingPage() {
           </div>
         </article>
 
-        <article className="card p-5">
-          <h2 className="text-lg font-semibold text-ink">Pro</h2>
-          <p className="mt-2 text-sm text-slate-700">Everything in Plus plus XLSX export, household sharing, and multi-employer support.</p>
-          <div className="mt-4 flex gap-2">
+        <article className="rounded-2xl border border-zinc-950/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+          <div className="flex items-center gap-2">
+            <Subheading>Pro</Subheading>
+            <Badge color="emerald">Full Access</Badge>
+          </div>
+          <ul className="mt-4 space-y-2 text-sm/6 text-zinc-700 dark:text-zinc-300">
+            <li>Everything in Plus</li>
+            <li>XLSX exports and household sharing</li>
+            <li>Extended retention options and multi-employer support</li>
+          </ul>
+          <div className="mt-5 flex flex-wrap gap-2">
             <Button
               disabled={loading || !summary?.user.canManageBilling}
               onClick={() => startCheckout("PRO", "monthly")}
-              className="disabled:opacity-50"
               type="button"
             >
               Pro Monthly
@@ -175,8 +193,7 @@ export default function BillingPage() {
             <Button
               disabled={loading || !summary?.user.canManageBilling}
               onClick={() => startCheckout("PRO", "annual")}
-              className="disabled:opacity-50"
-              tone="secondary"
+              outline
               type="button"
             >
               Pro Annual
@@ -184,8 +201,7 @@ export default function BillingPage() {
             <Button
               disabled={!summary?.user.canManageBilling}
               onClick={() => simulateActivation("PRO", "monthly")}
-              className="disabled:opacity-50"
-              tone="quiet"
+              plain
               type="button"
             >
               Simulate Pro
@@ -194,23 +210,21 @@ export default function BillingPage() {
         </article>
       </section>
 
-      <section className="card mt-6 p-5">
-        <h2 className="text-lg font-semibold text-ink">Monthly Upload Reminder</h2>
-        <p className="mt-2 text-sm text-slate-700">
-          Default is enabled. You can opt out and re-enable anytime.
-        </p>
-        <div className="mt-4 flex gap-2">
+      <section className="rounded-2xl border border-zinc-950/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+        <Subheading>Monthly Upload Reminder</Subheading>
+        <Text className="mt-2">Default is enabled. You can opt out and re-enable anytime.</Text>
+        <div className="mt-4 flex flex-wrap gap-2">
           <Button onClick={() => toggleReminder(true)} type="button">
             Enable Reminder
           </Button>
-          <Button onClick={() => toggleReminder(false)} tone="secondary" type="button">
+          <Button onClick={() => toggleReminder(false)} outline type="button">
             Disable Reminder
           </Button>
         </div>
       </section>
 
       {summary && !summary.user.canManageBilling ? (
-        <Text className="mt-4 text-amber-700">Billing can only be managed by the household owner.</Text>
+        <Text className="text-amber-700 dark:text-amber-300">Billing can only be managed by the household owner.</Text>
       ) : null}
     </PageShell>
   );

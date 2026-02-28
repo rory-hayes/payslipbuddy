@@ -1,12 +1,12 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import Link from "next/link";
-import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/catalyst/button";
+import { Field, FieldGroup, Fieldset, Label, Legend } from "@/components/catalyst/fieldset";
 import { Input } from "@/components/catalyst/input";
 import { Select } from "@/components/catalyst/select";
 import { Text } from "@/components/catalyst/text";
+import { PageShell } from "@/components/page-shell";
 import { apiFetch } from "@/lib/client-api";
 import { DEMO_USER_ID } from "@/lib/constants";
 
@@ -24,7 +24,7 @@ interface OnboardingResult {
 export default function OnboardingPage() {
   const [region, setRegion] = useState<"UK" | "IE">("UK");
   const [householdName, setHouseholdName] = useState("My Household");
-  const [status, setStatus] = useState<string>("");
+  const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -54,40 +54,42 @@ export default function OnboardingPage() {
   return (
     <PageShell
       title="Onboarding"
-      subtitle="Choose your region and household workspace defaults. Region controls schemas, currency, and annual report labels."
+      subtitle="Set your region and household defaults. Region controls schema validation, currency formatting, and report labels."
       actions={
-        <Link href="/dashboard" className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 shadow-sm">
+        <Button href="/dashboard" outline>
           Go to Dashboard
-        </Link>
+        </Button>
       }
     >
-      <section className="card max-w-2xl p-6">
-        <form onSubmit={submit} className="space-y-4">
-          <label className="block text-sm font-medium text-slate-700">
-            Region
-            <Select
-              value={region}
-              onChange={(event) => setRegion(event.target.value as "UK" | "IE")}
-              className="mt-2"
-            >
-              <option value="UK">United Kingdom (GBP)</option>
-              <option value="IE">Ireland (EUR)</option>
-            </Select>
-          </label>
+      <section className="max-w-2xl rounded-2xl border border-zinc-950/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+        <form onSubmit={submit}>
+          <Fieldset>
+            <Legend>Profile Setup</Legend>
+            <Text>You can update these values later from workspace settings.</Text>
+            <FieldGroup className="mt-6 space-y-5">
+              <Field>
+                <Label>Region</Label>
+                <Select value={region} onChange={(event) => setRegion(event.target.value as "UK" | "IE")}>
+                  <option value="UK">United Kingdom (GBP)</option>
+                  <option value="IE">Ireland (EUR)</option>
+                </Select>
+              </Field>
+              <Field>
+                <Label>Household Name</Label>
+                <Input
+                  value={householdName}
+                  onChange={(event) => setHouseholdName(event.target.value)}
+                  placeholder="My Household"
+                />
+              </Field>
+            </FieldGroup>
+          </Fieldset>
 
-          <label className="block text-sm font-medium text-slate-700">
-            Household Name
-            <Input
-              value={householdName}
-              onChange={(event) => setHouseholdName(event.target.value)}
-              className="mt-2"
-              placeholder="My Household"
-            />
-          </label>
-
-          <Button disabled={busy} type="submit">
-            {busy ? "Saving..." : "Save Onboarding"}
-          </Button>
+          <div className="mt-6">
+            <Button disabled={busy} type="submit">
+              {busy ? "Saving..." : "Save Onboarding"}
+            </Button>
+          </div>
         </form>
 
         {status ? <Text className="mt-4">{status}</Text> : null}
